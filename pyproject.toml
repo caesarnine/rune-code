@@ -1,0 +1,121 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rune"
+version = "0.1.0"
+description = "An interactive AI coding agent."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+  { name="Rune Agent", email="dev@rune-agent.ai" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Topic :: Software Development",
+    "Topic :: Utilities",
+    "Intended Audience :: Developers",
+]
+dependencies = [
+    "google-genai>=0.3.0",
+    "lxml>=5.3.2",
+    "pathspec>=0.12.1",
+    "pydantic>=2.0.0", # Using Pydantic v2
+    "python-dotenv>=1.0.1",
+    "prompt-toolkit>=3.0.0",
+    "rich>=13.9.4",
+    "pydantic-ai[examples]>=0.2.0",
+    "jupyter-client>=8.6.3",
+    "ipython>=8.37.0",
+    "ipykernel>=6.29.5",
+    "pydantic-xml>=2.17.2",
+    "html-to-markdown>=1.4.0",
+    "typer>=0.16.0",
+    "pytest-asyncio>=1.0.0",
+]
+
+# CLI command entry point
+[project.scripts]
+rune = "rune.cli.chat:app"
+
+# Optional project URLs
+[project.urls]
+"Homepage" = "https://github.com/rune-agent/rune"
+"Bug Tracker" = "https://github.com/rune-agent/rune/issues"
+
+# Optional dependencies
+[project.optional-dependencies]
+dev = [
+    "ipykernel>=6.29.5",
+    "pre-commit>=3.7.1",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.23.7",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+    "build>=1.2.1",
+    "twine>=5.0.0",
+]
+# Optional: Extra for Vertex AI support
+vertex = ["google-cloud-aiplatform>=1.48.0"]
+
+# Include system_prompt.md in the package
+[tool.setuptools.package-data]
+rune = ["system_prompt.md"]
+
+
+[tool.ruff]
+# Exclude the same directories from all checks & fixes.
+extend-exclude = [
+    "tests",
+    ".venv",
+    ".git",
+
+    ".rune",
+    "dist",
+    "build",
+    "*.egg-info",
+    ]
+
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+# Assume Python 3.10+
+target-version = "py310"
+
+[tool.ruff.lint]
+# Enable Pyflakes (F) and pycodestyle (E, W) error rules by default.
+# Enable flake8-import-conventions (I).
+# Enable pyupgrade rules (UP).
+select = ["E", "F", "W", "I", "UP"]
+ignore = ["E501"] # Ignore line-too-long, handled by formatter.
+unfixable = ["F401"] # Prevent auto-removal of unused imports
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
