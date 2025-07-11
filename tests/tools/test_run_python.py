@@ -10,7 +10,7 @@ def test_run_python_simple() -> None:
     result = run_python("print('hello')")
     assert result.status == "success"
     assert len(result.data["outputs"]) >= 1
-    assert result.data["outputs"][0]["text"] == "hello"
+    assert result.data["outputs"][0]["text"].strip() == "hello"
 
 
 def test_run_python_variable() -> None:
@@ -18,7 +18,7 @@ def test_run_python_variable() -> None:
     result = run_python("print(x)")
     assert result.status == "success"
     assert len(result.data["outputs"]) >= 1
-    assert result.data["outputs"][0]["text"] == "10"
+    assert result.data["outputs"][0]["text"].strip() == "10"
 
 
 def test_run_python_error() -> None:

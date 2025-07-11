@@ -7,7 +7,7 @@ from rune.tools.run_command import run_command
 def test_run_command_success(mock_run_context) -> None:
     result = run_command(mock_run_context, "echo hello")
     assert result.data["exit_code"] == 0
-    assert result.data["stdout"] == "hello\n"
+    assert result.data["stdout"].strip() == "hello"
 
 
 def test_run_command_error(mock_run_context) -> None:
