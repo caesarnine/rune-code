@@ -169,8 +169,4 @@ Tests live under `tests/tools/` and cover success paths and edge-cases for every
 
 ## License
 
-Rune is licensed under the **Apache 2.0** license.
-See [`LICENSE`](LICENSE) for full details.
-
-```
-```
+Rune is licensed under the **Apache 2.0**
