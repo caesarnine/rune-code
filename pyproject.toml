@@ -3,14 +3,14 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "rune"
+name = "rune-code"
 version = "0.1.0"
 description = "An interactive AI coding agent."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 authors = [
-  { name="Rune Agent", email="dev@rune-agent.ai" },
+  { name="Binal Patel", email="binalkp91@gmail.com" },
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -48,8 +48,8 @@ rune = "rune.cli.chat:app"
 
 # Optional project URLs
 [project.urls]
-"Homepage" = "https://github.com/rune-agent/rune"
-"Bug Tracker" = "https://github.com/rune-agent/rune/issues"
+"Homepage" = "https://github.com/caesarnine/rune-code"
+"Bug Tracker" = "https://github.com/caesarnine/rune-code/issues"
 
 # Optional dependencies
 [project.optional-dependencies]
@@ -77,7 +77,6 @@ extend-exclude = [
     "tests",
     ".venv",
     ".git",
-
     ".rune",
     "dist",
     "build",
