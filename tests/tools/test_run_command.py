@@ -18,3 +18,9 @@ def test_run_command_error(mock_run_context) -> None:
 def test_run_command_timeout(mock_run_context) -> None:
     with pytest.raises(TimeoutError):
         run_command(mock_run_context, "sleep 0.2", timeout=0.1)
+
+
+def test_run_command_background(mock_run_context) -> None:
+    result = run_command(mock_run_context, "echo 'background command'", background=True)
+    assert "pid" in result.data
+    assert "log_file" in result.data
