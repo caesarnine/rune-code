@@ -37,6 +37,7 @@ pt_style = Style.from_dict({"": "ansicyan"})
 
 app = typer.Typer(add_completion=True)
 
+
 async def run_agent_turn(
     agent: Agent,
     user_input: str,

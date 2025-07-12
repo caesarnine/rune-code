@@ -152,7 +152,10 @@ def run_command(
                 "command": command,
                 "status": "success",
             },
-            renderable=Text(f"✓ Started background command (PID: {pid}). Log: {log_file}", style="green"),
+            renderable=Text(
+                f"✓ Started background command (PID: {pid}). Log: {log_file}",
+                style="green",
+            ),
         )
 
     try:

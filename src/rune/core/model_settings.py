@@ -17,6 +17,7 @@ _PROVIDER_MAP = {
     # add more here
 }
 
+
 def build_settings(model_name: str, overrides: Mapping[str, Any] | None = None):
     """
     Return an appropriate *ModelSettings* instance for `model_name`.
@@ -24,14 +25,17 @@ def build_settings(model_name: str, overrides: Mapping[str, Any] | None = None):
     `overrides` is an optional dict of kwargs forwarded to the settings
     constructor (useful for flags like temperature, thinking configs, etc.).
     """
-    provider = model_name.split(":", 1)[0]   # e.g. "google-vertex" → "google"
-    provider = provider.split("-", 1)[0]     # strip "-vertex", "-gla", etc.
+    provider = model_name.split(":", 1)[0]  # e.g. "google-vertex" → "google"
+    provider = provider.split("-", 1)[0]  # strip "-vertex", "-gla", etc.
     cls = _PROVIDER_MAP.get(provider)
     if cls is None:  # fall back to a generic base class
         return None
     if provider == "google":
         overrides = {
-            "google_thinking_config": {"include_thoughts": True, "thinking_budget": 32768},
+            "google_thinking_config": {
+                "include_thoughts": True,
+                "thinking_budget": 32768,
+            },
             **(overrides or {}),
         }
     return cls(**(overrides or {}))

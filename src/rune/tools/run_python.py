@@ -121,14 +121,24 @@ async def run_python(code: str, *, timeout: int = 60) -> ToolResult:
 
                     if msg_type == "stream":
                         outputs.append(
-                            {"type": "stream", "name": content["name"], "text": content["text"]}
+                            {
+                                "type": "stream",
+                                "name": content["name"],
+                                "text": content["text"],
+                            }
                         )
                     elif msg_type == "execute_result":
-                        outputs.append({"type": "execute_result", "data": content["data"]})
+                        outputs.append(
+                            {"type": "execute_result", "data": content["data"]}
+                        )
                     elif msg_type == "display_data":
-                        outputs.append({"type": "display_data", "data": content["data"]})
+                        outputs.append(
+                            {"type": "display_data", "data": content["data"]}
+                        )
                     elif msg_type == "error":
-                        outputs.append({"type": "error", "traceback": content["traceback"]})
+                        outputs.append(
+                            {"type": "error", "traceback": content["traceback"]}
+                        )
                         break
 
                 except Empty:

@@ -22,7 +22,7 @@ def _infer_param_repr(args: Sequence[Any], kwargs: dict[str, Any]) -> Any:
 
 
 def rich_tool(
-    fn: Callable[..., ToolResult] | Callable[..., Coroutine[Any, Any, ToolResult]]
+    fn: Callable[..., ToolResult] | Callable[..., Coroutine[Any, Any, ToolResult]],
 ):
     """
     Decorator that handles the complete tool lifecycle for both sync and async tools:
