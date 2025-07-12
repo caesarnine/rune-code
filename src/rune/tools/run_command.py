@@ -87,6 +87,8 @@ def run_command(
 
     **NOTE:** The `cd` command is a shell built-in and cannot be executed in the background.
 
+    Use the background mode to run long-running processes like web servers or file watchers, any process where it doesn't complete naturally.
+
     Args:
         command (str): The command to execute.
         timeout (int, optional): The timeout in seconds for synchronous commands. Defaults to 60.
