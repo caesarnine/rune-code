@@ -10,9 +10,10 @@ import typer
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style
-from pydantic_ai import Agent
+from pydantic_ai import Agent, capture_run_messages
 from pydantic_ai.usage import UsageLimits
 
 from rune.adapters.persistence.sessions import (
@@ -24,7 +25,8 @@ from rune.adapters.ui.console import console
 from rune.adapters.ui.glyphs import GLYPH
 from rune.adapters.ui.render import prose
 from rune.agent.factory import build_agent
-from rune.core.messages import ModelMessage
+from rune.core.context import SessionContext
+from rune.core.messages import ModelMessage, ModelRequest
 
 RUNE_DIR = Path.cwd() / ".rune"
 PROMPT_HISTORY = RUNE_DIR / "prompt.history"
@@ -34,6 +36,50 @@ SNAPSHOT_DIR = RUNE_DIR / "snapshots"
 pt_style = Style.from_dict({"": "ansicyan"})
 
 app = typer.Typer(add_completion=True)
+
+async def run_agent_turn(
+    agent: Agent,
+    user_input: str,
+    history: list[ModelMessage],
+    session_ctx: SessionContext,
+) -> list[ModelMessage]:
+    """Handles a single turn of the agent's execution."""
+    with console.status("[bold green]Thinking...[/]"):
+        with capture_run_messages() as messages:
+            try:
+                async with agent.iter(
+                    user_input,
+                    message_history=history,
+                    usage_limits=UsageLimits(request_limit=1000),
+                    deps=session_ctx,
+                ) as run:
+                    async for node in run:
+                        if Agent.is_call_tools_node(node):
+                            # print the assistant's provisional text
+                            thinking_txt = "".join(
+                                p.content
+                                for p in node.model_response.parts
+                                if p.part_kind == "thinking"
+                            )
+                            out_txt = "".join(
+                                p.content
+                                for p in node.model_response.parts
+                                if p.part_kind == "text"
+                            )
+                            if thinking_txt.strip():
+                                prose("thinking", thinking_txt, glyph=True)
+                            if out_txt.strip():
+                                prose("assistant", out_txt, glyph=True)
+
+                    result = run.result
+                return result.all_messages()
+
+            except asyncio.CancelledError:
+                console.print("\n[bold yellow]Interrupted.[/]")
+
+                # Return a message indicating the interruption
+                interrupted_message = ModelRequest.user_text_prompt("User interrupted.")
+                return [*messages, interrupted_message]
 
 
 # ─────────────────── Chat loop ───────────────────────────────────────
@@ -54,12 +100,7 @@ async def chat_async(
         SNAPSHOT_DIR.mkdir(exist_ok=True)
         save_messages(ses_path, history)
 
-    from rune.core.context import SessionContext
-
-    # Instantiate the context for this session
     session_ctx = SessionContext()
-
-    # Let the agent know about the dependency type
     agent = build_agent(
         model_name=model_name,
         mcp_url=mcp_url,
@@ -67,13 +108,26 @@ async def chat_async(
         deps_type=SessionContext,
     )
 
+    agent_task = None
+
+    # Key bindings
+    bindings = KeyBindings()
+
+    @bindings.add("c-c")
+    def _(event):
+        if agent_task and not agent_task.done():
+            agent_task.cancel()
+        else:
+            event.app.exit(exception=KeyboardInterrupt)
+
     pt_session = PromptSession(
         multiline=True,
         history=FileHistory(str(PROMPT_HISTORY)),
         auto_suggest=AutoSuggestFromHistory(),
+        key_bindings=bindings,
     )
 
-    console.print("\n🤖  Commands: /save [name], /exit\n")
+    console.print("\n🤖  Commands: /save [name], /exit, Ctrl-C to interrupt\n")
 
     async with agent.run_mcp_servers():
         while True:
@@ -86,16 +140,14 @@ async def chat_async(
                         prompt_continuation=f"{GLYPH['user'][0]} ",
                     )
             except (EOFError, KeyboardInterrupt):
-                console.print("\n[bold italic]bye.[/]")
                 break
 
             if not user_input.strip():
                 continue
+
             if user_input in {"/exit", "/quit"}:
-                console.print("[italic]bye.[/]")
                 break
 
-            # manual snapshot
             if user_input.startswith("/save"):
                 _, *maybe = user_input.split(maxsplit=1)
                 fname = (
@@ -109,41 +161,19 @@ async def chat_async(
                 console.print(f"💾  Snapshot saved ➜ {fname}")
                 continue
 
-            # ─── run the LLM turn ───────────────────────────────
-            with console.status("[bold green]Thinking...[/]"):
-                async with agent.iter(
-                    user_input,
-                    message_history=history,
-                    usage_limits=UsageLimits(request_limit=1000),
-                    deps=session_ctx,
-                ) as run:
-                    async for node in run:
-                        if Agent.is_call_tools_node(node):
-                            # print the assistant's provisional text
-                            thinking_txt = "".join(
-                                p.content
-                                for p in node.model_response.parts
-                                if p.part_kind == "thinking"
-                            )
-                            out_txt = "".join(
-                                p.content
-                                for p in node.model_response.parts
-                                if p.part_kind == "text"
-                            )
+            agent_task = asyncio.create_task(
+                run_agent_turn(agent, user_input, history, session_ctx)
+            )
 
-                            if thinking_txt.strip():
-                                prose(
-                                    "thinking", thinking_txt, glyph=True
-                                )  # reuse UI helper
-                            if out_txt.strip():
-                                prose("assistant", out_txt, glyph=True)  # reuse UI helper
-
-                    result = run.result
-
-            # prose("assistant", result.output, glyph=True)
-            history = result.all_messages()
+            try:
+                history = await agent_task
+            except asyncio.CancelledError:
+                # Task was cancelled, history is already updated by run_agent_turn
+                pass
 
             save_messages(ses_path, history)
+
+    console.print("\n[bold italic]bye.[/]")
 
 
 @app.command()

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import atexit
-import base64
 from queue import Empty
 from typing import Any
 
 from jupyter_client.manager import KernelManager
 from rich.console import Group
-from rich.syntax import Syntax
 from rich.text import Text
 
 from rune.core.tool_result import ToolResult
@@ -88,7 +87,7 @@ def _create_renderable(code: str, outputs: list[dict[str, Any]]) -> Group:
 
 
 @register_tool(needs_ctx=False)
-def run_python(code: str, *, timeout: int = 60) -> ToolResult:
+async def run_python(code: str, *, timeout: int = 60) -> ToolResult:
     """
     Runs a Python code snippet in a persistent interactive interpreter.
     This tool allows you to execute Python code, with the state (variables, imports, etc.)
@@ -106,33 +105,38 @@ def run_python(code: str, *, timeout: int = 60) -> ToolResult:
 
     outputs = []
 
-    while True:
-        try:
-            msg = client.get_iopub_msg(timeout=timeout)
-            if msg["parent_header"].get("msg_id") != msg_id:
-                continue
+    try:
+        async with asyncio.timeout(timeout):
+            while True:
+                try:
+                    msg = await asyncio.to_thread(client.get_iopub_msg, timeout=1)
+                    if msg["parent_header"].get("msg_id") != msg_id:
+                        continue
 
-            msg_type = msg["header"]["msg_type"]
-            content = msg["content"]
+                    msg_type = msg["header"]["msg_type"]
+                    content = msg["content"]
 
-            if msg_type == "status" and content["execution_state"] == "idle":
-                break
+                    if msg_type == "status" and content["execution_state"] == "idle":
+                        break
 
-            if msg_type == "stream":
-                outputs.append(
-                    {"type": "stream", "name": content["name"], "text": content["text"]}
-                )
-            elif msg_type == "execute_result":
-                outputs.append({"type": "execute_result", "data": content["data"]})
-            elif msg_type == "display_data":
-                outputs.append({"type": "display_data", "data": content["data"]})
-            elif msg_type == "error":
-                outputs.append({"type": "error", "traceback": content["traceback"]})
-                # break here because error is the last message
-                break
+                    if msg_type == "stream":
+                        outputs.append(
+                            {"type": "stream", "name": content["name"], "text": content["text"]}
+                        )
+                    elif msg_type == "execute_result":
+                        outputs.append({"type": "execute_result", "data": content["data"]})
+                    elif msg_type == "display_data":
+                        outputs.append({"type": "display_data", "data": content["data"]})
+                    elif msg_type == "error":
+                        outputs.append({"type": "error", "traceback": content["traceback"]})
+                        break
 
-        except Empty:
-            raise TimeoutError(f"Execution timed out after {timeout} seconds.")
+                except Empty:
+                    # This is expected if no message is received within the timeout
+                    pass
+    except (asyncio.TimeoutError, asyncio.CancelledError):
+        _kernel_manager.interrupt_kernel()
+        raise
 
     error_output = next((o for o in outputs if o["type"] == "error"), None)
     if error_output:

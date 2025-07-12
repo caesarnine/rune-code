@@ -4,7 +4,6 @@ from typing import Literal
 
 from pydantic_ai import RunContext
 from rich.console import Group
-from rich.panel import Panel
 from rich.text import Text
 
 from rune.core.context import SessionContext

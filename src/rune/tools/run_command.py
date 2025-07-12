@@ -4,11 +4,14 @@ import os
 import shlex
 import subprocess
 import tempfile
+from pathlib import Path
 
+from pydantic_ai import RunContext
 from rich.console import Group
 from rich.syntax import Syntax
 from rich.text import Text
 
+from rune.core.context import SessionContext
 from rune.core.tool_result import ToolResult
 from rune.tools.registry import register_tool
 
@@ -57,13 +60,6 @@ def _create_renderable(
     renderables.append(Text("└" + "─" * 69, style=style))
 
     return Group(*renderables)
-
-
-from pathlib import Path
-
-from pydantic_ai import RunContext
-
-from rune.core.context import SessionContext
 
 
 @register_tool(needs_ctx=True)

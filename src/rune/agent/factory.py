@@ -3,11 +3,9 @@ from __future__ import annotations
 import importlib
 import pkgutil
 from importlib import resources
-from typing import Optional
 
-from pydantic_ai import Agent, RunContext
+from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerSSE, MCPServerStdio
-from pydantic_ai.usage import UsageLimits
 
 import rune.tools as _pkg
 from rune.agent.rich_wrappers import rich_tool
@@ -48,9 +46,6 @@ def _build_mcp_servers(mcp_url: str | None, mcp_stdio: bool) -> list:
             )
         )
     return mcp_servers
-
-
-from typing import Type
 
 
 def build_agent(

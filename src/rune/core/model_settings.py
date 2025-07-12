@@ -1,10 +1,12 @@
 # src/rune/core/model_settings.py
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
-from pydantic_ai.models.google import GoogleModelSettings
-from pydantic_ai.models.openai import OpenAIModelSettings
 from pydantic_ai.models.anthropic import AnthropicModelSettings
+from pydantic_ai.models.google import GoogleModelSettings
 from pydantic_ai.models.groq import GroqModelSettings
+from pydantic_ai.models.openai import OpenAIModelSettings
+
 # …import other providers as you need them
 
 _PROVIDER_MAP = {
