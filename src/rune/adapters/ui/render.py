@@ -83,7 +83,10 @@ def display_tool_call(name: str, params: Any | None) -> None:
         console.print(f"{param_indent}", pretty, sep="")
 
 
-def display_tool_result(name: str, res: ToolResult) -> None:
+def _build_tool_result_renderable(
+    name: str, res: ToolResult, content_override: RenderableType | None = None
+) -> Table:
+    """Builds the complete, framed renderable for a tool result."""
     is_error = res.status == "error"
     glyph_key = "tool_error" if is_error else "tool_result"
     bar_key = "tool_error_bar" if is_error else "tool_result_bar"
@@ -91,29 +94,33 @@ def display_tool_result(name: str, res: ToolResult) -> None:
     glyph, style = GLYPH[glyph_key]
     bar_char, bar_style = GLYPH[bar_key]
 
-    bar_prefix_str = f"[{bar_style}]{bar_char}[/] "
-    header = f"{'error from' if is_error else 'result from'} {name}"
-    console.print(f"{bar_prefix_str}[{style}]{glyph}[/] {header}")
+    header_bar_prefix = f"[{bar_style}]{bar_char}[/] "
+    header_text = f"{'error from' if is_error else 'result from'} {name}"
+    header = Text.from_markup(f"{header_bar_prefix}[{style}]{glyph}[/] {header_text}")
 
-    # Blank line with bar for spacing
-    console.print(bar_prefix_str.rstrip())
-
+    # Determine the content to render
     content_to_render: RenderableType
-    if is_error:
+    if content_override is not None:
+        content_to_render = content_override
+    elif is_error:
         content_to_render = Text(res.error or "unknown error", style="bold red")
     elif res.renderable is not None:
         content_to_render = res.renderable
     else:
         content_to_render = Syntax(_serialise(res.data), "json", theme="ansi_dark")
 
-    # --- Robust Grid-based Layout ---
-    bar_width = len(bar_char) + 1  # Bar + space
-    indent_width = len(INDENT)
-    prefix_width = bar_width + indent_width
+    # Use a Table as a grid to reliably prepend the UI chrome.
+    content_grid = Table.grid(expand=True)
+    bar_width = len(bar_char) + 1
+    content_grid.add_column(width=bar_width)
+    content_grid.add_column(width=len(INDENT))
+    content_grid.add_column(ratio=1)
 
-    # CRUCIAL FIX: Render the content into a console with a reduced width
-    # to make space for the bar and indent.
-    content_width = console.width - prefix_width
+    bar_text = Text.from_markup(f"[{bar_style}]{bar_char}[/] ")
+    indent_text = Text(INDENT)
+
+    # Render content to an in-memory console to get its lines
+    content_width = console.width - bar_width - len(INDENT)
     capture_buffer = StringIO()
     capture_console = RichConsole(
         file=capture_buffer,
@@ -124,20 +131,23 @@ def display_tool_result(name: str, res: ToolResult) -> None:
     capture_console.print(content_to_render)
     output_lines = capture_buffer.getvalue().splitlines()
 
-    # Use a Table as a grid to reliably prepend the UI chrome.
-    grid = Table.grid(expand=True)
-    grid.add_column(width=bar_width)
-    grid.add_column(width=indent_width)
-    grid.add_column(ratio=1)
-
-    bar_text = Text.from_markup(f"[{bar_style}]{bar_char}[/] ")
-    indent_text = Text(INDENT)
-
     for line in output_lines:
         content_line = Text.from_ansi(line)
-        grid.add_row(bar_text, indent_text, content_line)
+        content_grid.add_row(bar_text, indent_text, content_line)
 
-    console.print(grid)
+    # Group the header, a spacer, and the content grid into a single renderable
+    frame_grid = Table.grid(expand=True)
+    frame_grid.add_row(header)
+    frame_grid.add_row(Text.from_markup(header_bar_prefix.rstrip()))  # Spacer
+    frame_grid.add_row(content_grid)
+
+    return frame_grid
+
+
+def display_tool_result(name: str, res: ToolResult) -> None:
+    """Builds and prints the standard tool result UI."""
+    renderable = _build_tool_result_renderable(name, res)
+    console.print(renderable)
 
 
 def prose(role: str, text: str, *, glyph: bool = True) -> None:

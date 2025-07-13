@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from rune.core.models import Todo
+    from rune.adapters.ui.live_display import LiveDisplayManager
 
 
 @dataclass
@@ -19,3 +20,4 @@ class SessionContext:
 
     # The session-specific to-do list. Replaces the global `_TODOS` variable.
     todos: dict[str, Todo] = field(default_factory=dict)
+    live_display: LiveDisplayManager | None = None

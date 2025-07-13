@@ -27,6 +27,8 @@ from rune.adapters.ui.render import prose
 from rune.agent.factory import build_agent
 from rune.core.context import SessionContext
 from rune.core.messages import ModelMessage, ModelRequest
+from rune.adapters.ui.live_display import LiveDisplayManager
+from rich.spinner import Spinner
 
 RUNE_DIR = Path.cwd() / ".rune"
 PROMPT_HISTORY = RUNE_DIR / "prompt.history"
@@ -37,7 +39,6 @@ pt_style = Style.from_dict({"": "ansicyan"})
 
 app = typer.Typer(add_completion=True)
 
-
 async def run_agent_turn(
     agent: Agent,
     user_input: str,
@@ -45,42 +46,52 @@ async def run_agent_turn(
     session_ctx: SessionContext,
 ) -> list[ModelMessage]:
     """Handles a single turn of the agent's execution."""
-    with console.status("[bold green]Thinking...[/]"):
-        with capture_run_messages() as messages:
-            try:
-                async with agent.iter(
-                    user_input,
-                    message_history=history,
-                    usage_limits=UsageLimits(request_limit=1000),
-                    deps=session_ctx,
-                ) as run:
-                    async for node in run:
-                        if Agent.is_call_tools_node(node):
-                            # print the assistant's provisional text
-                            thinking_txt = "".join(
-                                p.content
-                                for p in node.model_response.parts
-                                if p.part_kind == "thinking"
-                            )
-                            out_txt = "".join(
-                                p.content
-                                for p in node.model_response.parts
-                                if p.part_kind == "text"
-                            )
-                            if thinking_txt.strip():
-                                prose("thinking", thinking_txt, glyph=True)
-                            if out_txt.strip():
-                                prose("assistant", out_txt, glyph=True)
 
-                    result = run.result
-                return result.all_messages()
+    live_display = LiveDisplayManager()
+    session_ctx.live_display = live_display
+    live_display.start()
 
-            except asyncio.CancelledError:
-                console.print("\n[bold yellow]Interrupted.[/]")
 
-                # Return a message indicating the interruption
-                interrupted_message = ModelRequest.user_text_prompt("User interrupted.")
-                return [*messages, interrupted_message]
+    with capture_run_messages() as messages:
+        try:
+            async with agent.iter(
+                user_input,
+                message_history=history,
+                usage_limits=UsageLimits(request_limit=1000),
+                deps=session_ctx,
+            ) as run:
+                async for node in run:
+                    live_display.update(Spinner("dots", text=" Thinking..."))
+
+                    if Agent.is_call_tools_node(node):
+                        # print the assistant's provisional text
+                        thinking_txt = "".join(
+                            p.content
+                            for p in node.model_response.parts
+                            if p.part_kind == "thinking"
+                        )
+                        out_txt = "".join(
+                            p.content
+                            for p in node.model_response.parts
+                            if p.part_kind == "text"
+                        )
+                        if thinking_txt.strip():
+                            prose("thinking", thinking_txt, glyph=True)
+                        if out_txt.strip():
+                            prose("assistant", out_txt, glyph=True)
+
+                result = run.result
+            return result.all_messages()
+
+        except asyncio.CancelledError:
+            console.print("\n[bold yellow]Interrupted.[/]")
+
+            # Return a message indicating the interruption
+            interrupted_message = ModelRequest.user_text_prompt("User interrupted.")
+            return [*messages, interrupted_message]
+        finally:
+            live_display.stop()
+            session_ctx.live_display = None
 
 
 # ─────────────────── Chat loop ───────────────────────────────────────

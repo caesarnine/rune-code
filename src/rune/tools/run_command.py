@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import shlex
 import subprocess
@@ -11,59 +12,164 @@ from rich.console import Group
 from rich.syntax import Syntax
 from rich.text import Text
 
+from rune.adapters.ui import render as ui
 from rune.core.context import SessionContext
 from rune.core.tool_result import ToolResult
 from rune.tools.registry import register_tool
 
 
-def _create_renderable(
+def _create_renderable_content(
     command: str,
-    stdout: str | None,
-    stderr: str | None,
-    exit_code: int,
-    error: str | None = None,
+    stdout_lines: list[str],
+    stderr_lines: list[str],
 ) -> Group:
+    """Creates the rich renderable for the command's output CONTENT only."""
     renderables = []
-    if error:
-        header_text = "┌─ ! Command Execution Error "
-        header = Text(header_text + "─" * (70 - len(header_text)), style="bold red")
-        error_line = Text(f"│  {error}", style="red")
-        footer = Text("└" + "─" * 69, style="red")
-        return Group(header, error_line, footer)
 
-    success = exit_code == 0
-    glyph = "✔" if success else "✘"
-    style = "green" if success else "red"
-    header_content = (
-        f"{glyph} Command {'Succeeded' if success else 'Failed'} (Exit {exit_code})"
-    )
-    header_text = f"┌─ {header_content} "
-    header = Text(header_text + "─" * (70 - len(header_text)), style=f"bold {style}")
-    renderables.append(header)
+    renderables.append(Text(f"$ {command}", style="bold cyan"))
 
-    renderables.append(Text(f"│  $ {command}", style="bold cyan"))
+    stdout = "".join(stdout_lines)
+    stderr = "".join(stderr_lines)
 
     if stdout:
-        renderables.append(Text("│"))
-        renderables.append(Text("│  STDOUT " + "─" * 59, style="bold grey70"))
+        renderables.append(Text("\nSTDOUT " + "─" * 59, style="bold grey70"))
         renderables.append(
             Syntax(stdout, "bash", theme="ansi_dark", background_color="default")
         )
 
     if stderr:
-        renderables.append(Text("│"))
-        renderables.append(Text("│  STDERR " + "─" * 59, style="bold yellow"))
+        renderables.append(Text("\nSTDERR " + "─" * 59, style="bold yellow"))
         renderables.append(
             Syntax(stderr, "bash", theme="ansi_dark", background_color="default")
         )
 
-    renderables.append(Text("└" + "─" * 69, style=style))
-
     return Group(*renderables)
 
 
+async def _handle_streaming_command(
+    command: str, cmd_list: list[str], cwd: Path, timeout: int, live_manager
+) -> ToolResult:
+    """The core logic for running a command and streaming its output."""
+    proc = await asyncio.create_subprocess_exec(
+        *cmd_list,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd=cwd,
+    )
+
+    stdout_lines: list[str] = []
+    stderr_lines: list[str] = []
+
+    async def read_stream(stream, sink: list[str]):
+        """Reads from a stream and updates the live display."""
+        if not stream:
+            return
+        while not stream.at_eof():
+            line_bytes = await stream.readline()
+            if not line_bytes:
+                break
+            line = line_bytes.decode("utf-8", errors="replace")
+            sink.append(line)
+            if live_manager:
+                content_update = _create_renderable_content(
+                    command, stdout_lines, stderr_lines
+                )
+                # Create a temporary ToolResult just for status/framing
+                temp_status = ToolResult(status="success", data=None)
+                frame_update = ui._build_tool_result_renderable(
+                    "run_command", temp_status, content_override=content_update
+                )
+                live_manager.update(frame_update)
+
+    try:
+        # Concurrently read stdout and stderr
+        await asyncio.wait_for(
+            asyncio.gather(
+                read_stream(proc.stdout, stdout_lines),
+                read_stream(proc.stderr, stderr_lines),
+            ),
+            timeout,
+        )
+        exit_code = await proc.wait()
+    except asyncio.TimeoutError:
+        proc.kill()
+        await proc.wait()
+        raise TimeoutError(f"Command timed out after {timeout} seconds.")
+
+    final_stdout = "".join(stdout_lines)
+    final_stderr = "".join(stderr_lines)
+
+    if exit_code != 0:
+        error_details = (
+            f"Command failed with exit code {exit_code}.\n"
+            f"Stdout: {final_stdout.strip()}\n"
+            f"------------------------------------\n"
+            f"Stderr: {final_stderr.strip()}"
+        )
+        raise ValueError(error_details)
+
+    return ToolResult(
+        data={
+            "command": command,
+            "stdout": final_stdout,
+            "stderr": final_stderr,
+            "exit_code": exit_code,
+        },
+        renderable=_create_renderable_content(command, stdout_lines, stderr_lines),
+    )
+
+
+def _handle_cd_command(cmd_list: list[str], session_ctx: SessionContext) -> ToolResult:
+    """Handles changing the directory."""
+    target_dir = Path(cmd_list[1]) if len(cmd_list) > 1 else Path.home()
+    new_dir = (session_ctx.current_working_dir / target_dir).resolve()
+
+    if not new_dir.is_dir():
+        raise ValueError(f"cd: no such file or directory: {new_dir}")
+
+    session_ctx.current_working_dir = new_dir
+    return ToolResult(
+        data={"status": "success", "message": f"Changed directory to {new_dir}"},
+        renderable=Text(f"✓ Changed directory to {new_dir}", style="green"),
+    )
+
+
+def _handle_background_command(
+    cmd_list: list[str], session_ctx: SessionContext
+) -> ToolResult:
+    """Handles running a command in the background."""
+    log_dir = session_ctx.current_working_dir / ".rune" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    tmp_log_fd, tmp_log_path_str = tempfile.mkstemp(dir=log_dir, text=True)
+    tmp_log_path = Path(tmp_log_path_str)
+
+    try:
+        proc = subprocess.Popen(
+            cmd_list,
+            stdout=tmp_log_fd,
+            stderr=subprocess.STDOUT,
+            cwd=session_ctx.current_working_dir,
+            start_new_session=True,
+        )
+    finally:
+        os.close(tmp_log_fd)
+
+    pid = proc.pid
+    log_file = log_dir / f"{pid}.log"
+    tmp_log_path.rename(log_file)
+    rel_log_path = str(log_file.relative_to(session_ctx.current_working_dir))
+
+    return ToolResult(
+        data={"pid": pid, "log_file": rel_log_path, "status": "success"},
+        renderable=Text(
+            f"✓ Started background command (PID: {pid}). Log: {rel_log_path}",
+            style="green",
+        ),
+    )
+
+
 @register_tool(needs_ctx=True)
-def run_command(
+async def run_command(
     ctx: RunContext[SessionContext],
     command: str,
     *,
@@ -71,128 +177,42 @@ def run_command(
     background: bool = False,
 ) -> ToolResult:
     """
-    Executes a given bash command in a persistent shell session with optional timeout, ensuring proper handling and security measures.
+    Executes a bash command with live streaming output and an optional timeout.
 
-    This tool can run commands in two modes:
-    1.  **Synchronous (default):** Waits for the command to complete and returns its output.
-    2.  **Background (`background=True`):** Starts the command and immediately returns, allowing it to run in the background. This is ideal for long-running processes like web servers or file watchers.
-
-    When running in the background:
-    - The command's output (`stdout` and `stderr`) is redirected to a log file in the `.rune/logs` directory, named after the process ID (PID).
-    - The tool returns a dictionary containing the PID and the path to the log file, which you can use to monitor or stop the process.
-
-    **NOTE:** The `cd` command is a shell built-in and cannot be executed in the background.
-
-    Use the background mode to run long-running processes like web servers or file watchers, any process where it doesn't complete naturally.
+    This tool can run commands in three modes:
+    1.  **Synchronous (default):** Executes the command and streams its stdout and stderr
+        to the UI in real-time. It waits for the command to complete.
+    2.  **Background (`background=True`):** Starts the command and immediately returns,
+        allowing it to run in the background. Ideal for long-running processes like web
+        servers. Output is redirected to a log file.
+    3.  **Change Directory (`cd`):** A special case to handle changing the persistent
+        working directory for the session.
 
     Args:
         command (str): The command to execute.
-        timeout (int, optional): The timeout in seconds for synchronous commands. Defaults to 60.
-        background (bool, optional): If True, runs the command in the background. Defaults to False.
+        timeout (int, optional): The timeout in seconds for synchronous commands.
+            Defaults to 60.
+        background (bool, optional): If True, runs the command in the background.
+            Defaults to False.
 
     Returns:
-        The result of the command. For background commands, this includes the PID and log file path.
+        The final result of the command. For synchronous commands, this includes all
+        output and the exit code. For background commands, this includes the PID and
+        log file path.
     """
     session_ctx = ctx.deps
     cmd_list = shlex.split(command)
 
-    # Special handling for 'cd' command, which is a shell builtin
     if cmd_list[0] == "cd":
         if background:
             raise ValueError("'cd' command cannot be run in the background.")
-        if len(cmd_list) == 1:
-            # 'cd' with no arguments can be treated as a no-op or go to home.
-            # For simplicity, we'll treat as no-op.
-            target_dir = Path.home()
-        else:
-            target_dir = Path(cmd_list[1])
-
-        # Resolve the new path based on the current context
-        new_dir = (session_ctx.current_working_dir / target_dir).resolve()
-
-        if not new_dir.is_dir():
-            raise ValueError(f"cd: no such file or directory: {new_dir}")
-
-        session_ctx.current_working_dir = new_dir
-        return ToolResult(
-            data={"status": "success", "message": f"Changed directory to {new_dir}"},
-            renderable=Text(f"✓ Changed directory to {new_dir}", style="green"),
-        )
+        return _handle_cd_command(cmd_list, session_ctx)
 
     if background:
-        log_dir = session_ctx.current_working_dir / ".rune" / "logs"
-        log_dir.mkdir(parents=True, exist_ok=True)
+        return _handle_background_command(cmd_list, session_ctx)
 
-        # Create a temporary file to redirect output to, then rename it to the PID.
-        # This avoids a race condition where we need the PID to name the file but don't have it yet.
-        tmp_log_fd, tmp_log_path_str = tempfile.mkstemp(dir=log_dir, text=True)
-        tmp_log_path = Path(tmp_log_path_str)
-
-        try:
-            proc = subprocess.Popen(
-                cmd_list,
-                shell=False,
-                stdout=tmp_log_fd,
-                stderr=subprocess.STDOUT,
-                cwd=session_ctx.current_working_dir,
-                start_new_session=True,  # Detach from this process group
-            )
-        finally:
-            # The file descriptor is now owned by the Popen object, close our copy
-            os.close(tmp_log_fd)
-
-        pid = proc.pid
-        log_file = log_dir / f"{pid}.log"
-        tmp_log_path.rename(log_file)
-
-        return ToolResult(
-            data={
-                "pid": pid,
-                "log_file": str(log_file.relative_to(session_ctx.current_working_dir)),
-                "command": command,
-                "status": "success",
-            },
-            renderable=Text(
-                f"✓ Started background command (PID: {pid}). Log: {log_file}",
-                style="green",
-            ),
-        )
-
-    try:
-        proc = subprocess.run(
-            cmd_list,
-            shell=False,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-            cwd=session_ctx.current_working_dir,
-        )
-
-        if proc.returncode != 0:
-            error_details = (
-                f"Command failed with exit code {proc.returncode}.\n"
-                f"Stdout: {proc.stdout.strip()}\n"
-                f"------------------------------------"
-                f"Stderr: {proc.stderr.strip()}"
-            )
-            raise ValueError(error_details)
-        # This part is now only the success path.
-        return ToolResult(
-            data={
-                "command": command,
-                "stdout": proc.stdout,
-                "stderr": proc.stderr,
-                "exit_code": proc.returncode,
-            },
-            renderable=_create_renderable(
-                command=command,
-                stdout=proc.stdout,
-                stderr=proc.stderr,
-                exit_code=proc.returncode,
-            ),
-        )
-
-    except subprocess.TimeoutExpired:
-        # Re-raise with a clearer message for the LLM.
-        raise TimeoutError(f"Command timed out after {timeout} seconds.")
+    # The default case is to stream the command's output.
+    live_manager = session_ctx.live_display
+    return await _handle_streaming_command(
+        command, cmd_list, session_ctx.current_working_dir, timeout, live_manager
+    )
