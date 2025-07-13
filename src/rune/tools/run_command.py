@@ -59,9 +59,12 @@ async def _handle_streaming_command(
 
     stdout_lines: list[str] = []
     stderr_lines: list[str] = []
+    is_dirty = True  # Start dirty to render initial frame
+    tasks_done = asyncio.Event()
 
     async def read_stream(stream, sink: list[str]):
-        """Reads from a stream and updates the live display."""
+        """Reads from a stream, appends to sink, and sets the dirty flag."""
+        nonlocal is_dirty
         if not stream:
             return
         while not stream.at_eof():
@@ -70,32 +73,41 @@ async def _handle_streaming_command(
                 break
             line = line_bytes.decode("utf-8", errors="replace")
             sink.append(line)
-            if live_manager:
+            is_dirty = True
+
+    async def render_loop():
+        """Periodically renders the output if the content is dirty."""
+        nonlocal is_dirty
+        while not tasks_done.is_set():
+            if is_dirty and live_manager:
+                is_dirty = False
                 content_update = _create_renderable_content(
                     command, stdout_lines, stderr_lines
                 )
-                # Create a temporary ToolResult just for status/framing
                 temp_status = ToolResult(status="success", data=None)
                 frame_update = ui._build_tool_result_renderable(
                     "run_command", temp_status, content_override=content_update
                 )
                 live_manager.update(frame_update)
+            await asyncio.sleep(0.06)  # ~16 FPS
+
+    reader_tasks = asyncio.gather(
+        read_stream(proc.stdout, stdout_lines),
+        read_stream(proc.stderr, stderr_lines),
+    )
+    renderer_task = asyncio.create_task(render_loop())
 
     try:
-        # Concurrently read stdout and stderr
-        await asyncio.wait_for(
-            asyncio.gather(
-                read_stream(proc.stdout, stdout_lines),
-                read_stream(proc.stderr, stderr_lines),
-            ),
-            timeout,
-        )
-        exit_code = await proc.wait()
+        await asyncio.wait_for(reader_tasks, timeout)
     except asyncio.TimeoutError:
         proc.kill()
         await proc.wait()
         raise TimeoutError(f"Command timed out after {timeout} seconds.")
+    finally:
+        tasks_done.set()
+        await renderer_task
 
+    exit_code = await proc.wait()
     final_stdout = "".join(stdout_lines)
     final_stderr = "".join(stderr_lines)
 
