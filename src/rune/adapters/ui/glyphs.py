@@ -19,3 +19,4 @@ GLYPH = {
 
 INDENT = "  "
 PREVIEW_TURNS = 5
+SPINNER_TEXT = "Thinking..."

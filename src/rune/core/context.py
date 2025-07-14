@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from rune.core.models import Todo
     from rune.adapters.ui.live_display import LiveDisplayManager
+    from rune.core.models import Todo
 
 
 @dataclass

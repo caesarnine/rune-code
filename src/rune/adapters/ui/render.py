@@ -1,10 +1,7 @@
 # src/rune/adapters/ui/render.py
-import textwrap
-from io import StringIO
 from typing import Any
 
-from rich.console import Console as RichConsole
-from rich.console import RenderableType
+from rich.console import Group, RenderableType
 from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
@@ -14,6 +11,7 @@ from rune.core.messages import ModelMessage
 # Import ToolResult to type annotate
 from rune.core.tool_result import ToolResult
 
+from .components import bar_frame
 from .console import console
 from .glyphs import GLYPH, INDENT
 
@@ -41,46 +39,54 @@ def _render_with_bar(
         return
 
     bar_char, bar_style = GLYPH[bar_style_key]
-    bar_prefix = f"[{bar_style}]{bar_char}[/] "
+    body = (
+        Text(text_to_render, style=text_style) if text_style else Text(text_to_render)
+    )
 
-    width = console.width - len(INDENT) - 2  # bar + space
-    out: list[str] = []
-
-    text_opener = f"[{text_style}]" if text_style else ""
-    text_closer = "[/]" if text_style else ""
-
-    for para in text_to_render.split("\n"):
-        if not para.strip():
-            # Render the bar even for empty lines to maintain the block
-            out.append(bar_prefix)
-            continue
-
-        wrapped = textwrap.wrap(para, width=width, replace_whitespace=False) or [""]
-        for line in wrapped:
-            out.append(f"{bar_prefix}{text_opener}{line}{text_closer}")
-
-    console.print("\n".join(out))
+    console.print(
+        bar_frame(
+            body,
+            glyph=bar_char,
+            bar_style=bar_style,
+            indent=INDENT,
+        )
+    )
 
 
 def display_tool_call(name: str, params: Any | None) -> None:
     glyph, style = GLYPH["tool_call"]
     bar_char, bar_style = GLYPH["tool_call_bar"]  # Use the tool's specific bar
 
-    bar_prefix = f"[{bar_style}]{bar_char}[/] "
+    header = Text.from_markup(f"[{style}]{glyph}[/] [bold]{name}[/]")
 
-    console.print(f"{bar_prefix}[{style}]{glyph}[/] [bold]{name}[/]")
     if params is None:
-        return
-
-    # Indent params under the tool call line
-    param_indent = bar_prefix + INDENT
-    if isinstance(params, dict):
-        for key, val in params.items():
-            pretty = Text(repr(val), style="cyan")
-            console.print(f"{param_indent}{key} = ", pretty, sep="")
+        body = header
     else:
-        pretty = Text(str(params), style="cyan")
-        console.print(f"{param_indent}", pretty, sep="")
+        param_renderables = []
+        if isinstance(params, dict):
+            for key, val in params.items():
+                line = Text(f"{key} = ", end="")
+                line.append(Text(repr(val), style="cyan"))
+                param_renderables.append(line)
+        else:
+            param_renderables.append(Text(str(params), style="cyan"))
+
+        param_grid = Table.grid(expand=True)
+        param_grid.add_column(width=len(INDENT))
+        param_grid.add_column(ratio=1)
+        for r in param_renderables:
+            param_grid.add_row(INDENT, r)
+
+        body = Group(header, param_grid)
+
+    console.print(
+        bar_frame(
+            body,
+            glyph=bar_char,
+            bar_style=bar_style,
+            indent="",
+        )
+    )
 
 
 def _build_tool_result_renderable(
@@ -109,31 +115,12 @@ def _build_tool_result_renderable(
     else:
         content_to_render = Syntax(_serialise(res.data), "json", theme="ansi_dark")
 
-    # Use a Table as a grid to reliably prepend the UI chrome.
-    content_grid = Table.grid(expand=True)
-    bar_width = len(bar_char) + 1
-    content_grid.add_column(width=bar_width)
-    content_grid.add_column(width=len(INDENT))
-    content_grid.add_column(ratio=1)
-
-    bar_text = Text.from_markup(f"[{bar_style}]{bar_char}[/] ")
-    indent_text = Text(INDENT)
-
-    # Render content to an in-memory console to get its lines
-    content_width = console.width - bar_width - len(INDENT)
-    capture_buffer = StringIO()
-    capture_console = RichConsole(
-        file=capture_buffer,
-        force_terminal=True,
-        color_system=console.color_system,
-        width=content_width,
+    content_grid = bar_frame(
+        content_to_render,
+        glyph=bar_char,
+        bar_style=bar_style,
+        indent=INDENT,
     )
-    capture_console.print(content_to_render)
-    output_lines = capture_buffer.getvalue().splitlines()
-
-    for line in output_lines:
-        content_line = Text.from_ansi(line)
-        content_grid.add_row(bar_text, indent_text, content_line)
 
     # Group the header, a spacer, and the content grid into a single renderable
     frame_grid = Table.grid(expand=True)
@@ -163,11 +150,11 @@ def prose(role: str, text: str, *, glyph: bool = True) -> None:
     # Handle thinking and assistant messages with the bar
     if role == "thinking":
         bar_char, bar_style = GLYPH["thinking_bar"]
-        bar_prefix = f"[{bar_style}]{bar_char}[/] "
+        bar_prefix = f"[{bar_style}]{bar_char}[/]"
         thinking_text, thinking_style = GLYPH["thinking_text"]
         # Print a blank line with bar, the thinking text, then the agent's thoughts
         console.print(bar_prefix)
-        console.print(f"{bar_prefix}[{thinking_style}]{thinking_text}[/]")
+        console.print(f"{bar_prefix} [{thinking_style}]{thinking_text}[/]")
         _render_with_bar(text, "thinking_bar", text_style=thinking_style)
     elif role == "assistant":
         # Print a blank line to separate from tools/thinking

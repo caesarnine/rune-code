@@ -1,5 +1,6 @@
 # src/rune/adapters/ui/live_display.py (New File)
 from __future__ import annotations
+
 from typing import Any
 
 from rich.console import RenderableType
@@ -7,6 +8,7 @@ from rich.live import Live
 from rich.spinner import Spinner
 
 from .console import console
+from .glyphs import SPINNER_TEXT
 
 
 class LiveDisplayManager:
@@ -16,10 +18,24 @@ class LiveDisplayManager:
         self._live: Live | None = None
         self._current_renderable: RenderableType | None = None
 
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.stop()
+
+    async def __aenter__(self):
+        self.start()
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        self.stop()
+
     def start(self, initial_renderable: RenderableType | None = None) -> None:
         """Starts the live display."""
         if initial_renderable is None:
-            initial_renderable = Spinner("dots", text=" Thinking...")
+            initial_renderable = Spinner("dots", text=SPINNER_TEXT)
 
         self._current_renderable = initial_renderable
         self._live = Live(self._current_renderable, console=console, transient=True)

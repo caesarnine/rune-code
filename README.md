@@ -82,7 +82,7 @@ flowchart TD
         D["edit_file\nrun_python\ngrep\n…"]
     end
     subgraph UI
-        E["render.py\nRich console"]
+        E["render.py\nRich console\nLiveDisplayManager"]
     end
     subgraph Persistence
         F[".rune/sessions/*.json"]
