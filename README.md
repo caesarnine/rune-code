@@ -37,8 +37,8 @@ It brings an LLM into your own terminal, augments it with safe “power-tools”
 
 ```bash
 # 1. Clone & install
-git clone https://github.com/caesarnine/rune.git
-cd rune
+git clone https://github.com/caesarnine/rune-code.git
+cd rune-code
 uv sync --all-extras
 uv venv
 
