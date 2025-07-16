@@ -1,10 +1,10 @@
 # Rune Code
 
-It's my terminal-first coding agent I've been working on (and will continue working on).
+Rune's a terminal first coding agent, it's my personal forever ongoing personal project.
 
 It builds on the excellent [Pydantic-AI](https://github.com/pydantic/pydantic-ai) which among many things lets you easily switch between different models (Claude vs Gemini) as well as providers (Claude on Bedrock, Gemini on Vertex AI, etc.)
 
-![Rune in action](placeholder.gif "Rune in action")
+<img width="1490" height="902" alt="rune" src="https://github.com/user-attachments/assets/40490fc9-aa55-4fa6-ac15-3a56eb2dc256" />
 
 ---
 
