@@ -65,7 +65,7 @@ class ModelCompleter(Completer):
                     yield Completion(model_name, start_position=-len(word_to_complete))
 
 
-app = typer.Typer(add_completion=True, no_args_is_help=True)
+app = typer.Typer(add_completion=True, invoke_without_command=True)
 app.add_typer(models_app)
 
 
@@ -242,8 +242,9 @@ async def chat_async(
     console.print("\n[bold italic]bye.[/]")
 
 
-@app.command(name="chat")
-def chat_command(
+@app.callback()
+def main(
+    ctx: typer.Context,
     mcp_url: str | None = typer.Option(
         None,
         "--mcp-url",
@@ -260,6 +261,7 @@ def chat_command(
         help="Override the LLM model to use, e.g. 'openai:gpt-4o'",
     ),
 ) -> None:
-    """Start or resume a chat session with a Rich tool UI."""
-    model_name = model or os.getenv("RUNE_MODEL")
-    asyncio.run(chat_async(mcp_url, mcp_stdio, model_name))
+    """Rune: An interactive AI coding agent."""
+    if ctx.invoked_subcommand is None:
+        model_name = model or os.getenv("RUNE_MODEL")
+        asyncio.run(chat_async(mcp_url, mcp_stdio, model_name))
