@@ -11,6 +11,10 @@ from rune.cli.models import app as models_app
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.history import FileHistory
+from typing import get_args, Iterable
+
+from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.document import Document
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style
@@ -38,6 +42,30 @@ SNAPSHOT_DIR = RUNE_DIR / "snapshots"
 
 
 pt_style = Style.from_dict({"": "ansicyan"})
+
+
+class ModelCompleter(Completer):
+    """A completer for the /model slash command."""
+
+    def __init__(self):
+        self.all_models = sorted(list(get_args(KnownModelName.__value__)))
+
+    def get_completions(
+        self, document: Document, complete_event
+    ) -> Iterable[Completion]:
+        text = document.text_before_cursor
+        words = text.split()
+
+        # Activate only when typing the second word of "/model <...>'"
+        if len(words) > 1 and words[0] == "/model":
+            word_to_complete = document.get_word_before_cursor()
+
+            for model_name in self.all_models:
+                if model_name.startswith(word_to_complete):
+                    yield Completion(
+                        model_name, start_position=-len(word_to_complete)
+                    )
+
 
 app = typer.Typer(add_completion=True, no_args_is_help=True)
 app.add_typer(models_app)
@@ -138,9 +166,12 @@ async def chat_async(
         history=FileHistory(str(PROMPT_HISTORY)),
         auto_suggest=AutoSuggestFromHistory(),
         key_bindings=bindings,
+        completer=ModelCompleter(),
     )
 
-    console.print("\n🤖  Commands: /save [name], /exit, Ctrl-C to interrupt\n")
+    console.print(
+        "\n🤖  Commands: /save [name], /model [name] (tab-complete), /exit, Ctrl-C to interrupt\n"
+    )
 
     async with agent.run_mcp_servers():
         while True:
@@ -178,7 +209,7 @@ async def chat_async(
                 parts = user_input.split()
                 if len(parts) == 2:
                     new_model = parts[1]
-                    if new_model in KnownModelName:
+                    if new_model in get_args(KnownModelName.__value__):
                         agent = build_agent(
                             model_name=new_model,
                             mcp_url=mcp_url,
