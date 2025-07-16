@@ -6,9 +6,9 @@ from typing import get_args
 
 import typer
 from pydantic_ai.models import KnownModelName
+from rich import box
 from rich.table import Table
 from rich.text import Text
-from rich import box
 
 from rune.adapters.ui.console import console
 
@@ -27,7 +27,7 @@ def list_models(
         "-p",
         help="Filter models by a specific provider (e.g., 'openai', 'google').",
         show_choices=True,
-    )
+    ),
 ) -> None:
     """
     Lists all available models supported by pydantic-ai, grouped by provider.

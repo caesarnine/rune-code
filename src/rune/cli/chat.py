@@ -3,22 +3,22 @@ from __future__ import annotations
 import asyncio
 import os
 import shutil
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
+from typing import get_args
 
 import typer
-from rune.cli.models import app as models_app
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.history import FileHistory
-from typing import get_args, Iterable
-
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.document import Document
+from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style
 from pydantic_ai import Agent, capture_run_messages
+from pydantic_ai.models import KnownModelName
 from pydantic_ai.usage import UsageLimits
 from rich.spinner import Spinner
 
@@ -32,8 +32,8 @@ from rune.adapters.ui.glyphs import GLYPH, SPINNER_TEXT
 from rune.adapters.ui.live_display import LiveDisplayManager
 from rune.adapters.ui.render import prose
 from rune.agent.factory import build_agent
+from rune.cli.models import app as models_app
 from rune.core.context import SessionContext
-from pydantic_ai.models import KnownModelName
 from rune.core.messages import ModelMessage, ModelRequest
 
 RUNE_DIR = Path.cwd() / ".rune"
@@ -62,9 +62,7 @@ class ModelCompleter(Completer):
 
             for model_name in self.all_models:
                 if model_name.startswith(word_to_complete):
-                    yield Completion(
-                        model_name, start_position=-len(word_to_complete)
-                    )
+                    yield Completion(model_name, start_position=-len(word_to_complete))
 
 
 app = typer.Typer(add_completion=True, no_args_is_help=True)
