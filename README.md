@@ -58,9 +58,11 @@ export RUNE_MODEL="openai:gpt-4o"      # optional – override default model
 
 | Action                              | How                                                          |
 | ----------------------------------- | ------------------------------------------------------------ |
-| Start a new chat                    | `rune` (choose “Start new session”)                          |
-| Resume a previous session           | `rune` and pick from the list                                |
-| Save a snapshot                     | Type `/save` or `/save custom_name.json`                     |
+| Start a new chat                    | `rune chat` (choose “Start new session”)                     |
+| Resume a previous session           | `rune chat` and pick from the list                           |
+| List available models               | `rune models list`                                           |
+| Switch models in-chat               | `/model <model_name>` (e.g., `/model openai:gpt-4o`)         |
+| Save a snapshot                     | `/save` or `/save custom_name.json`                          |
 | Exit                                | `/exit` or Ctrl-D                                            |
 | Change directory for shell commands | `run_command("cd path/to/dir")`                              |
 | List tasks                          | `list_todos()` (the agent often calls this automatically)    |

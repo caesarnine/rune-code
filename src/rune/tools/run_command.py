@@ -93,7 +93,10 @@ async def _handle_streaming_command(
     )
 
     try:
-        async with stream_to_live(live_manager, build_frame, lambda: is_dirty):
+        if live_manager:
+            async with stream_to_live(live_manager, build_frame, lambda: is_dirty):
+                await asyncio.wait_for(reader_tasks, timeout)
+        else:
             await asyncio.wait_for(reader_tasks, timeout)
     except asyncio.TimeoutError:
         proc.kill()

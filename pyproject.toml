@@ -40,6 +40,7 @@ dependencies = [
     "html-to-markdown>=1.4.0",
     "typer>=0.16.0",
     "pytest-asyncio>=1.0.0",
+    "pytest-snapshot>=0.9.0",
 ]
 
 # CLI command entry point
@@ -62,6 +63,7 @@ dev = [
     "ruff>=0.1.0",
     "build>=1.2.1",
     "twine>=5.0.0",
+    "pytest-snapshot>=0.9.0",
 ]
 # Optional: Extra for Vertex AI support
 vertex = ["google-cloud-aiplatform>=1.48.0"]

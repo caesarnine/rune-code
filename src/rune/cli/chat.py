@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 import typer
+from rune.cli.models import app as models_app
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.history import FileHistory
@@ -28,6 +29,7 @@ from rune.adapters.ui.live_display import LiveDisplayManager
 from rune.adapters.ui.render import prose
 from rune.agent.factory import build_agent
 from rune.core.context import SessionContext
+from pydantic_ai.models import KnownModelName
 from rune.core.messages import ModelMessage, ModelRequest
 
 RUNE_DIR = Path.cwd() / ".rune"
@@ -37,7 +39,8 @@ SNAPSHOT_DIR = RUNE_DIR / "snapshots"
 
 pt_style = Style.from_dict({"": "ansicyan"})
 
-app = typer.Typer(add_completion=True)
+app = typer.Typer(add_completion=True, no_args_is_help=True)
+app.add_typer(models_app)
 
 
 async def run_agent_turn(
@@ -171,6 +174,30 @@ async def chat_async(
                 console.print(f"💾  Snapshot saved ➜ {fname}")
                 continue
 
+            if user_input.startswith("/model"):
+                parts = user_input.split()
+                if len(parts) == 2:
+                    new_model = parts[1]
+                    if new_model in KnownModelName:
+                        agent = build_agent(
+                            model_name=new_model,
+                            mcp_url=mcp_url,
+                            mcp_stdio=mcp_stdio,
+                            deps_type=SessionContext,
+                        )
+                        console.print(
+                            f"✅ Model switched to [bold green]{new_model}[/bold green]"
+                        )
+                    else:
+                        console.print(
+                            f"❌ [bold red]Error:[/bold red] Model '{new_model}' is not a known model."
+                        )
+                else:
+                    console.print(
+                        "Usage: /model <model_name>. Use `rune models list` to see options."
+                    )
+                continue
+
             agent_task = asyncio.create_task(
                 run_agent_turn(agent, user_input, history, session_ctx)
             )
@@ -186,8 +213,8 @@ async def chat_async(
     console.print("\n[bold italic]bye.[/]")
 
 
-@app.command()
-def chat(
+@app.command(name="chat")
+def chat_command(
     mcp_url: str | None = typer.Option(
         None,
         "--mcp-url",
