@@ -23,9 +23,10 @@ from pydantic_ai.usage import UsageLimits
 from rich.spinner import Spinner
 
 from rune.adapters.persistence.sessions import (
+    Session,
     choose_session,
-    load_messages,
-    save_messages,
+    load_session,
+    save_session,
 )
 from rune.adapters.ui.console import console
 from rune.adapters.ui.glyphs import GLYPH, SPINNER_TEXT
@@ -127,19 +128,19 @@ async def chat_async(
 ) -> None:
     ses_path = choose_session(console)
     if ses_path:
-        history = load_messages(ses_path)
+        session = load_session(ses_path)
         console.print(f"📂  Resuming session: [italic]{ses_path.stem}[/]")
     else:
         ses_path = (
             RUNE_DIR / "sessions" / f"session_{datetime.now():%Y%m%d_%H%M%S}.json"
         )
-        history: list[ModelMessage] = []
+        session = Session()
         console.print("🆕  Starting new session")
         RUNE_DIR.mkdir(exist_ok=True)
         SNAPSHOT_DIR.mkdir(exist_ok=True)
-        save_messages(ses_path, history)
+        save_session(ses_path, session)
 
-    session_ctx = SessionContext()
+    session_ctx = session.context
     agent = build_agent(
         model_name=model_name,
         mcp_url=mcp_url,
@@ -228,16 +229,16 @@ async def chat_async(
                 continue
 
             agent_task = asyncio.create_task(
-                run_agent_turn(agent, user_input, history, session_ctx)
+                run_agent_turn(agent, user_input, session.messages, session_ctx)
             )
 
             try:
-                history = await agent_task
+                session.messages = await agent_task
             except asyncio.CancelledError:
                 # Task was cancelled, history is already updated by run_agent_turn
                 pass
 
-            save_messages(ses_path, history)
+            save_session(ses_path, session)
 
     console.print("\n[bold italic]bye.[/]")
 

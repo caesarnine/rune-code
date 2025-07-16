@@ -5,18 +5,40 @@ from pathlib import Path
 
 from pydantic_core import to_json
 
+from pydantic import BaseModel, Field
+
+from rune.core.context import SessionContext
 from rune.core.messages import ModelMessage, ModelMessagesTypeAdapter
+
+
+class Session(BaseModel):
+    """Represents the stored state of a session."""
+
+    messages: list[ModelMessage] = Field(default_factory=list)
+    context: SessionContext = Field(default_factory=SessionContext)
+
 
 SESSIONS_DIR = Path.cwd() / ".rune" / "sessions"
 SESSIONS_DIR.mkdir(exist_ok=True, parents=True)
 
 
-def save_messages(path: Path, msgs: list[ModelMessage]) -> None:
-    path.write_bytes(to_json(msgs))
+# Rebuild the model to handle forward references
+Session.model_rebuild()
 
 
-def load_messages(path: Path) -> list[ModelMessage]:
-    return ModelMessagesTypeAdapter.validate_json(path.read_bytes())
+def save_session(path: Path, session: Session) -> None:
+    path.write_bytes(session.model_dump_json(indent=2).encode("utf-8"))
+
+
+def load_session(path: Path) -> Session:
+    raw_data = path.read_bytes()
+    try:
+        # First, try to parse it as the new Session model
+        return Session.model_validate_json(raw_data)
+    except Exception:
+        # If that fails, assume it's the old format (a list of messages)
+        messages = ModelMessagesTypeAdapter.validate_json(raw_data)
+        return Session(messages=messages)
 
 
 def choose_session(console) -> Path | None:

@@ -1,10 +1,10 @@
 # src/rune/core/models.py
-import dataclasses
 from typing import Literal
 
+from pydantic import BaseModel
 
-@dataclasses.dataclass
-class Todo:
+
+class Todo(BaseModel):
     """Represents a single task in the to-do list."""
 
     id: str

@@ -261,7 +261,7 @@ def add_todos(
         added_todos.append(todo)
 
     return ToolResult(
-        data={"added_todos": [dataclasses.asdict(todo) for todo in added_todos]},
+        data={"added_todos": [todo.model_dump() for todo in added_todos]},
         renderable=_render_todos(list(session_ctx.todos.values())),
     )
 
@@ -306,7 +306,7 @@ def update_todos(
         updated_todos.append(todo)
 
     return ToolResult(
-        data={"updated_todos": [dataclasses.asdict(todo) for todo in updated_todos]},
+        data={"updated_todos": [todo.model_dump() for todo in updated_todos]},
         renderable=_render_todos(list(session_ctx.todos.values())),
     )
 
@@ -342,6 +342,6 @@ def list_todos(
         filtered_todos = [todo for todo in filtered_todos if todo.priority == priority]
 
     return ToolResult(
-        data={"todos": [dataclasses.asdict(todo) for todo in filtered_todos]},
+        data={"todos": [todo.model_dump() for todo in filtered_todos]},
         renderable=_render_todos(filtered_todos),
     )
