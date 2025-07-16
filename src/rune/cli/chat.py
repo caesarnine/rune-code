@@ -169,7 +169,10 @@ async def chat_async(
     )
 
     console.print(
-        "\n🤖  Commands: /save [name], /model [name] (tab-complete), /exit, Ctrl-C to interrupt\n"
+        "\n🤖  Commands: /save [name], /model [name] (tab-complete), /exit, Ctrl-C to interrupt"
+    )
+    console.print(
+        "💡  To submit, press [bold]Esc+Enter[/], [bold]Option+Enter[/] (Mac), or [bold]Alt+Enter[/] (Windows).\n"
     )
 
     async with agent.run_mcp_servers():

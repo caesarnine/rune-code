@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rune-code"
-version = "0.11.0"
-description = "An interactive AI coding agent."
+version = "0.12.0"
+description = "A terminal first, opinionated AI coding agent written in Python. Works with almost any model via Pydantic-AI."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
