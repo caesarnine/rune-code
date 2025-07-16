@@ -163,28 +163,34 @@ The following sections are for those interested in contributing to or learning a
 ```mermaid
 flowchart TD
     subgraph CLI
-        A["chat.py\nprompt-toolkit"]
+        A["chat.py
+        prompt-toolkit"]
     end
     subgraph Agent
-        B["pydantic_ai.Agent"] --&gt; C["rich_tool wrapper"]
+        B["pydantic_ai.Agent"] --> C["rich_tool wrapper"]
     end
     subgraph Tools
-        D["edit_file\nrun_python\ngrep\n…"]
+        D["edit_file
+        run_python
+        grep
+        …"]
     end
     subgraph UI
-        E["render.py\nRich console\nLiveDisplayManager"]
+        E["render.py
+        Rich console
+        LiveDisplayManager"]
     end
     subgraph Persistence
         F[".rune/sessions/*.json"]
     end
 
-    A --&gt;|prompt| B
-    B --&gt;|XML tool call| C
-    C --&gt;|exec| D
-    D --&gt;|ToolResult| C
-    C --&gt;|renderable| E
-    B --&gt;|assistant text| E
-    A &lt;--&gt; F
+    A -->|prompt| B
+    B -->|XML tool call| C
+    C -->|exec| D
+    D -->|ToolResult| C
+    C -->|renderable| E
+    B -->|assistant text| E
+    A <--> F
 ```
 
 ### Core Libraries
