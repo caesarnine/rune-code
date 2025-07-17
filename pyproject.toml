@@ -70,7 +70,7 @@ vertex = ["google-cloud-aiplatform>=1.48.0"]
 
 # Include system_prompt.md in the package
 [tool.setuptools.package-data]
-rune = ["system_prompt.md"]
+"rune.core.prompts" = ["*"]
 
 
 [tool.ruff]
