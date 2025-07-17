@@ -52,10 +52,6 @@ def fetch_url(url: str, *, timeout: int = 30) -> ToolResult:
             resp = client.get(url)
             resp.raise_for_status()
 
-        ctype = resp.headers.get("content-type", "")
-        if "text/html" not in ctype:
-            raise ValueError(f"Expected HTML, got '{ctype}'.")
-
         markdown = convert_to_markdown(resp.text)
 
         return ToolResult(
