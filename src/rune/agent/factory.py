@@ -12,7 +12,7 @@ from rune.agent.rich_wrappers import rich_tool
 from rune.core.model_settings import build_settings
 from rune.tools.registry import REGISTRY
 
-DEFAULT_MODEL = "google-vertex:gemini-2.5-pro"
+DEFAULT_MODEL = "anthropic:claude-sonnet-4-0"
 
 
 def _load_system_prompt() -> str:
