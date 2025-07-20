@@ -127,21 +127,6 @@ async def _handle_streaming_command(
     )
 
 
-def _handle_cd_command(cmd_list: list[str], session_ctx: SessionContext) -> ToolResult:
-    """Handles changing the directory."""
-    target_dir = Path(cmd_list[1]) if len(cmd_list) > 1 else Path.home()
-    new_dir = (session_ctx.current_working_dir / target_dir).resolve()
-
-    if not new_dir.is_dir():
-        raise ValueError(f"cd: no such file or directory: {new_dir}")
-
-    session_ctx.current_working_dir = new_dir
-    return ToolResult(
-        data={"status": "success", "message": f"Changed directory to {new_dir}"},
-        renderable=Text(f"✓ Changed directory to {new_dir}", style="green"),
-    )
-
-
 def _handle_background_command(
     cmd_list: list[str], session_ctx: SessionContext
 ) -> ToolResult:
@@ -193,8 +178,6 @@ async def run_command(
     2.  **Background (`background=True`):** Starts the command and immediately returns,
         allowing it to run in the background. Ideal for long-running processes like web
         servers. Output is redirected to a log file.
-    3.  **Change Directory (`cd`):** A special case to handle changing the persistent
-        working directory for the session.
 
     Args:
         command (str): The command to execute.
@@ -210,11 +193,6 @@ async def run_command(
     """
     session_ctx = ctx.deps
     cmd_list = shlex.split(command)
-
-    if cmd_list[0] == "cd":
-        if background:
-            raise ValueError("'cd' command cannot be run in the background.")
-        return _handle_cd_command(cmd_list, session_ctx)
 
     if background:
         return _handle_background_command(cmd_list, session_ctx)
