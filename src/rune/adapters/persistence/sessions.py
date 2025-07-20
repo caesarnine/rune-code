@@ -3,8 +3,6 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from pydantic_core import to_json
-
 from pydantic import BaseModel, Field
 
 from rune.core.context import SessionContext
