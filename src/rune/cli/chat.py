@@ -49,21 +49,38 @@ class ModelCompleter(Completer):
     """A completer for the /model slash command."""
 
     def __init__(self):
-        self.all_models = sorted(list(get_args(KnownModelName.__value__)))
+        all_models = get_args(KnownModelName.__value__)
+        providers = {m.split(":")[0] for m in all_models}
+        self.providers = sorted(list(providers | {"azure"}))
+        self.all_models = sorted(list(all_models))
 
     def get_completions(
         self, document: Document, complete_event
     ) -> Iterable[Completion]:
-        text = document.text_before_cursor
-        words = text.split()
+        text = document.text_before_cursor.lstrip()
+        if not text.startswith("/model "):
+            return
 
-        # Activate only when typing the second word of "/model <...>'"
-        if len(words) > 1 and words[0] == "/model":
-            word_to_complete = document.get_word_before_cursor()
+        word_to_complete = document.get_word_before_cursor()
+        current_model_text = text.split(" ")[1] if len(text.split(" ")) > 1 else ""
 
+        if ":" not in current_model_text:
+            # User is typing the provider
+            for provider in self.providers:
+                if provider.startswith(word_to_complete):
+                    yield Completion(
+                        f"{provider}:",
+                        start_position=-len(word_to_complete),
+                        display=provider,
+                    )
+        else:
+            # User is typing the model name
             for model_name in self.all_models:
-                if model_name.startswith(word_to_complete):
-                    yield Completion(model_name, start_position=-len(word_to_complete))
+                if model_name.startswith(current_model_text):
+                    yield Completion(
+                        model_name,
+                        start_position=-len(current_model_text),
+                    )
 
 
 app = typer.Typer(add_completion=True, invoke_without_command=True)
@@ -211,7 +228,7 @@ async def chat_async(
                 parts = user_input.split()
                 if len(parts) == 2:
                     new_model = parts[1]
-                    if new_model in get_args(KnownModelName.__value__):
+                    try:
                         agent = build_agent(
                             model_name=new_model,
                             mcp_url=mcp_url,
@@ -221,10 +238,8 @@ async def chat_async(
                         console.print(
                             f"✅ Model switched to [bold green]{new_model}[/bold green]"
                         )
-                    else:
-                        console.print(
-                            f"❌ [bold red]Error:[/bold red] Model '{new_model}' is not a known model."
-                        )
+                    except ValueError as e:
+                        console.print(f"❌ [bold red]Error:[/bold red] {e}")
                 else:
                     console.print(
                         "Usage: /model <model_name>. Use `rune models list` to see options."
