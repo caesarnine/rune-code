@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-import shlex
 import subprocess
 import tempfile
 from pathlib import Path
@@ -48,11 +47,11 @@ def _create_renderable_content(
 
 
 async def _handle_streaming_command(
-    command: str, cmd_list: list[str], cwd: Path, timeout: int, live_manager
+    command: str, cwd: Path, timeout: int, live_manager
 ) -> ToolResult:
     """The core logic for running a command and streaming its output."""
-    proc = await asyncio.create_subprocess_exec(
-        *cmd_list,
+    proc = await asyncio.create_subprocess_shell(
+        command,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         cwd=cwd,
@@ -128,7 +127,7 @@ async def _handle_streaming_command(
 
 
 def _handle_background_command(
-    cmd_list: list[str], session_ctx: SessionContext
+    command: str, session_ctx: SessionContext
 ) -> ToolResult:
     """Handles running a command in the background."""
     log_dir = session_ctx.current_working_dir / ".rune" / "logs"
@@ -138,10 +137,11 @@ def _handle_background_command(
 
     try:
         proc = subprocess.Popen(
-            cmd_list,
+            command,
             stdout=tmp_log_fd,
             stderr=subprocess.STDOUT,
             cwd=session_ctx.current_working_dir,
+            shell=True,
             start_new_session=True,
         )
     finally:
@@ -192,13 +192,12 @@ async def run_command(
         log file path.
     """
     session_ctx = ctx.deps
-    cmd_list = shlex.split(command)
 
     if background:
-        return _handle_background_command(cmd_list, session_ctx)
+        return _handle_background_command(command, session_ctx)
 
     # The default case is to stream the command's output.
     live_manager = session_ctx.live_display
     return await _handle_streaming_command(
-        command, cmd_list, session_ctx.current_working_dir, timeout, live_manager
+        command, session_ctx.current_working_dir, timeout, live_manager
     )
