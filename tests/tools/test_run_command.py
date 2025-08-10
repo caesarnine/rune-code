@@ -4,6 +4,7 @@ import pytest
 
 from rune.tools.run_command import run_command
 
+
 async def test_run_command_success(mock_run_context) -> None:
     result = await run_command(mock_run_context, "echo hello")
     assert result.data["exit_code"] == 0
@@ -20,7 +21,16 @@ async def test_run_command_timeout(mock_run_context) -> None:
         await run_command(mock_run_context, "sleep 0.2", timeout=0.1)
 
 
+async def test_run_command_chained(mock_run_context) -> None:
+    # Note: To reliably test `cd`, we check the output of a subsequent command.
+    result = await run_command(mock_run_context, "cd /tmp && pwd")
+    assert result.data["exit_code"] == 0
+    assert result.data["stdout"].strip() == "/tmp"
+
+
 async def test_run_command_background(mock_run_context) -> None:
-    result = await run_command(mock_run_context, "echo 'background command'", background=True)
+    result = await run_command(
+        mock_run_context, "echo 'background command'", background=True
+    )
     assert "pid" in result.data
     assert "log_file" in result.data
