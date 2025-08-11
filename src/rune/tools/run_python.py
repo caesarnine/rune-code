@@ -9,9 +9,8 @@ from pydantic_ai import RunContext
 from rich.console import Group
 from rich.text import Text
 
-from rune.core.context import SessionContext
+from rune.core.context import RuneDependencies, SessionContext
 from rune.core.tool_result import ToolResult
-from rune.tools.registry import register_tool
 
 _kernel_manager = None
 _kernel_client = None
@@ -80,9 +79,8 @@ def _create_renderable(code: str, outputs: list[dict[str, Any]]) -> Group:
     return Group(*body)
 
 
-@register_tool(needs_ctx=True)
 async def run_python(
-    ctx: RunContext[SessionContext],
+    ctx: RunContext[RuneDependencies],
     code: str,
     *,
     timeout: int = 60,

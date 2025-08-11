@@ -6,10 +6,9 @@ from pydantic_ai import RunContext
 from rich.console import Group
 from rich.text import Text
 
-from rune.core.context import SessionContext
+from rune.core.context import RuneDependencies, SessionContext
 from rune.core.models import Todo
 from rune.core.tool_result import ToolResult
-from rune.tools.registry import register_tool
 
 
 @dataclasses.dataclass
@@ -74,9 +73,8 @@ def _render_todos(todos: list[Todo]) -> Group | Text:
     return Group(*renderables)
 
 
-@register_tool(needs_ctx=True)
-def add_todos(
-    ctx: RunContext[SessionContext], todos: list[AddTodosTodos]
+async def add_todos(
+    ctx: RunContext[RuneDependencies], todos: list[AddTodosTodos]
 ) -> ToolResult:
     """
     Use this tool to create and manage a structured task list for your current coding session. This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user.
@@ -246,7 +244,7 @@ def add_todos(
 
     When in doubt, use this tool. Being proactive with task management demonstrates attentiveness and ensures you complete all requirements successfully.
     """
-    session_ctx = ctx.deps
+    session_ctx = ctx.deps.session
     added_todos = []
     for new_todo in todos:
         todo_id = str(uuid.uuid4())[:8]
@@ -266,9 +264,8 @@ def add_todos(
     )
 
 
-@register_tool(needs_ctx=True)
-def update_todos(
-    ctx: RunContext[SessionContext], updates: list[UpdateTodosUpdates]
+async def update_todos(
+    ctx: RunContext[RuneDependencies], updates: list[UpdateTodosUpdates]
 ) -> ToolResult:
     """
     Use this tool to update the status, priority, or notes of existing todos. This is essential for tracking the lifecycle of a task from 'pending' to 'in_progress' and finally to 'completed'.
@@ -289,7 +286,7 @@ def update_todos(
     To mark a a task as completed:
     `update_todos(updates=[UpdateTodo(id='abcdef12', status='completed')])`
     """
-    session_ctx = ctx.deps
+    session_ctx = ctx.deps.session
     updated_todos = []
     for update in updates:
         if update.id not in session_ctx.todos:
@@ -311,9 +308,8 @@ def update_todos(
     )
 
 
-@register_tool(needs_ctx=True)
-def list_todos(
-    ctx: RunContext[SessionContext],
+async def list_todos(
+    ctx: RunContext[RuneDependencies],
     status: Literal["pending", "in_progress", "completed", "cancelled"] | None = None,
     priority: Literal["low", "medium", "high"] | None = None,
 ) -> ToolResult:
@@ -333,7 +329,7 @@ def list_todos(
     - Use this information to track progress and plan next steps
     - If no todos exist yet, an empty list will be returned
     """
-    session_ctx = ctx.deps
+    session_ctx = ctx.deps.session
     filtered_todos = list(session_ctx.todos.values())
 
     if status:

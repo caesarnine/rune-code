@@ -7,7 +7,6 @@ from rich.syntax import Syntax
 from rich.text import Text
 
 from rune.core.tool_result import ToolResult
-from rune.tools.registry import register_tool
 
 
 def _fmt_size(size: int) -> str:
@@ -51,8 +50,7 @@ def _create_renderable(
     return Group(header, syntax, footer)
 
 
-@register_tool(needs_ctx=False)
-def read_chunk(path: str, *, offset: int = 0, length: int = 65_536) -> ToolResult:
+async def read_chunk(path: str, *, offset: int = 0, length: int = 65_536) -> ToolResult:
     """Reads a chunk of bytes from a file, starting at a specific offset.
 
     This tool is ideal for reading large files piece by piece. The content is

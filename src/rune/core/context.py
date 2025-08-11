@@ -1,6 +1,7 @@
 # src/rune/core/context.py
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 from pydantic import BaseModel, Field, PrivateAttr
@@ -25,3 +26,10 @@ class SessionContext(BaseModel):
     @live_display.setter
     def live_display(self, value: LiveDisplayManager | None) -> None:
         self._live_display = value
+
+
+@dataclasses.dataclass
+class RuneDependencies:
+    """Dependencies for the agent's tools."""
+
+    session: SessionContext

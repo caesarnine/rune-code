@@ -11,7 +11,6 @@ from rich.console import Group
 from rich.text import Text
 
 from rune.core.tool_result import ToolResult
-from rune.tools.registry import register_tool
 
 
 def _create_renderable(
@@ -88,8 +87,10 @@ def _create_renderable(
     return Group(*body)
 
 
-@register_tool(needs_ctx=False)
-def grep(
+import asyncio
+
+
+async def grep(
     pattern: str,
     *,
     path: str = ".",
@@ -133,14 +134,17 @@ def grep(
         cmd.extend(["--glob", glob])
     cmd.extend(["--", pattern, str(search_root)])
 
-    proc = subprocess.run(
-        cmd, capture_output=True, text=True, encoding="utf-8", timeout=30, check=False
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
     )
+    stdout, stderr = await proc.communicate()
 
     if proc.returncode == 2:
-        raise ValueError(f"ripgrep error: {proc.stderr.strip()}")
+        raise ValueError(f"ripgrep error: {stderr.decode().strip()}")
 
-    if not proc.stdout.strip():
+    if not stdout.strip():
         return ToolResult(
             data={"pattern": pattern, "results_by_file": {}, "stats": {}},
             renderable=_create_renderable(pattern, {}),
@@ -149,7 +153,7 @@ def grep(
     results_by_file: dict[str, list[dict[str, Any]]] = defaultdict(list)
     stats: dict = {}
 
-    for raw in proc.stdout.strip().splitlines():
+    for raw in stdout.strip().decode().splitlines():
         if not raw:
             continue
         jo = json.loads(raw)

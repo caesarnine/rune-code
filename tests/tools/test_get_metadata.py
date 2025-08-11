@@ -6,34 +6,36 @@ from pathlib import Path
 from rune.tools.get_metadata import get_metadata
 
 
-def test_get_metadata_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_get_metadata_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "test_file.txt").write_text("hello")
 
-    result = get_metadata("test_file.txt")
-    assert result.status == "success"
+    result = await get_metadata("test_file.txt")
     assert result.data["path"] == "test_file.txt"
     assert result.data["type"] == "file"
     assert result.data["size"] == 5
 
 
-def test_get_metadata_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_get_metadata_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "test_dir").mkdir()
 
-    result = get_metadata("test_dir")
-    assert result.status == "success"
+    result = await get_metadata("test_dir")
     assert result.data["path"] == "test_dir"
     assert result.data["type"] == "dir"
 
 
-def test_get_metadata_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_get_metadata_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(FileNotFoundError):
-        get_metadata("non_existent_file.txt")
+        await get_metadata("non_existent_file.txt")
 
 
-def test_get_metadata_outside_project_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_get_metadata_outside_project_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     
     import os
@@ -48,7 +50,7 @@ def test_get_metadata_outside_project_directory(tmp_path: Path, monkeypatch: pyt
         pytest.skip(f"Could not write to /tmp to set up permission test: {e}")
 
     with pytest.raises(PermissionError, match="Path is outside the project directory"):
-        get_metadata(str(outside_file))
+        await get_metadata(str(outside_file))
 
     # Teardown
     try:

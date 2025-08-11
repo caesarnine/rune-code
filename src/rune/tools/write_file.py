@@ -9,7 +9,6 @@ from rich.syntax import Syntax
 from rich.text import Text
 
 from rune.core.tool_result import ToolResult
-from rune.tools.registry import register_tool
 
 
 def _create_renderable(
@@ -57,8 +56,9 @@ def _create_renderable(
     return Group(*renderables)
 
 
-@register_tool(needs_ctx=False)
-def write_file(path: str, content: str, *, mode: Literal["w", "a"] = "w") -> ToolResult:
+async def write_file(
+    path: str, content: str, *, mode: Literal["w", "a"] = "w"
+) -> ToolResult:
     """Writes or appends content to a file on the local filesystem.
 
     This tool can create a new file, overwrite an existing file, or append

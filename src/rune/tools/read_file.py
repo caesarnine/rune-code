@@ -7,13 +7,11 @@ from rich.syntax import Syntax
 from rich.text import Text
 
 from rune.core.tool_result import ToolResult
-from rune.tools.registry import register_tool
 
 MAX_READ = 5 * 1024 * 1024  # 5 MB
 
 
-@register_tool(needs_ctx=False)
-def read_file(path: str) -> ToolResult:
+async def read_file(path: str) -> ToolResult:
     """Reads the entire content of a file.
 
     This tool is suitable for reasonably sized text files (up to 5 MB). For

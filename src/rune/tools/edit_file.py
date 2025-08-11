@@ -8,7 +8,6 @@ from rich.syntax import Syntax
 from rich.text import Text
 
 from rune.core.tool_result import ToolResult
-from rune.tools.registry import register_tool
 from rune.utils.diff import ApplyDiffResult, DiffApplyer
 
 
@@ -51,8 +50,7 @@ def _create_renderable(
     return Group(*renderables)
 
 
-@register_tool(needs_ctx=False)
-def edit_file(path: str, diff: str) -> ToolResult:
+async def edit_file(path: str, diff: str) -> ToolResult:
     """
     Performs precise, robust edits to a file using one or more diff blocks. Returns the diff between the original and edited file.
 

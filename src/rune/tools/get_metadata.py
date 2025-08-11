@@ -8,7 +8,6 @@ from rich.console import Group
 from rich.text import Text
 
 from rune.core.tool_result import ToolResult
-from rune.tools.registry import register_tool
 
 
 def _fmt_size(size: int | None) -> str:
@@ -62,8 +61,7 @@ def _create_renderable(
     return Group(*renderables)
 
 
-@register_tool(needs_ctx=False)
-def get_metadata(path: str) -> ToolResult:
+async def get_metadata(path: str) -> ToolResult:
     """Outputs the metadata of a file or directory.
 
     Retrieves details such as type (file, dir), size, permissions, and last

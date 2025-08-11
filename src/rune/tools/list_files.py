@@ -9,7 +9,6 @@ from rich.console import Group
 from rich.text import Text
 
 from rune.core.tool_result import ToolResult
-from rune.tools.registry import register_tool
 
 
 def _rich_lines(node: dict, prefix: str = "", is_last: bool = True) -> list[Text]:
@@ -85,8 +84,7 @@ def _load_ignore_spec(start_dir: Path) -> pathspec.PathSpec:
     return pathspec.PathSpec.from_lines("gitwildmatch", patterns)
 
 
-@register_tool(needs_ctx=False)
-def list_files(
+async def list_files(
     path: str = ".",
     *,
     recursive: bool = True,

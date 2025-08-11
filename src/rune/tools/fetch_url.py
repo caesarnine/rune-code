@@ -7,7 +7,6 @@ from rich.markdown import Markdown
 from rich.text import Text
 
 from rune.core.tool_result import ToolResult
-from rune.tools.registry import register_tool
 
 
 def _create_renderable(
@@ -33,8 +32,7 @@ def _create_renderable(
     return Group(*body)
 
 
-@register_tool(needs_ctx=False)
-def fetch_url(url: str, *, timeout: int = 30) -> ToolResult:
+async def fetch_url(url: str, *, timeout: int = 30) -> ToolResult:
     """Fetches the content of a given URL and returns it as clean Markdown.
 
     This tool is suitable for retrieving the content of web pages. It will
@@ -48,8 +46,8 @@ def fetch_url(url: str, *, timeout: int = 30) -> ToolResult:
             server. Defaults to 30.
     """
     try:
-        with httpx.Client(follow_redirects=True, timeout=timeout) as client:
-            resp = client.get(url)
+        async with httpx.AsyncClient(follow_redirects=True, timeout=timeout) as client:
+            resp = await client.get(url)
             resp.raise_for_status()
 
         markdown = convert_to_markdown(resp.text)

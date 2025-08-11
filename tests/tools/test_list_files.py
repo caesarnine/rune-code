@@ -6,14 +6,14 @@ from pathlib import Path
 from rune.tools.list_files import list_files
 
 
-def test_list_files_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_list_files_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "dir1").mkdir()
     (tmp_path / "file1.txt").write_text("a")
     (tmp_path / "dir1" / "file2.txt").write_text("b")
 
-    result = list_files()
-    assert result.status == "success"
+    result = await list_files()
     root = result.data["root"]
     assert root["name"] == tmp_path.name
     assert len(root["children"]) == 2
@@ -24,13 +24,13 @@ def test_list_files_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     assert root["children"][1]["name"] == "file1.txt"
 
 
-def test_list_files_recursive_false(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_list_files_recursive_false(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "dir1").mkdir()
     (tmp_path / "dir1" / "file2.txt").write_text("b")
 
-    result = list_files(recursive=False)
-    assert result.status == "success"
+    result = await list_files(recursive=False)
     root = result.data["root"]
     assert len(root["children"]) == 1
     assert root["children"][0]["name"] == "dir1"
@@ -38,28 +38,30 @@ def test_list_files_recursive_false(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert len(root["children"][0]["children"]) == 0
 
 
-def test_list_files_max_depth(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_list_files_max_depth(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "d1").mkdir()
     (tmp_path / "d1" / "d2").mkdir()
     (tmp_path / "d1" / "d2" / "d3").mkdir()
 
-    result = list_files(max_depth=2)
-    assert result.status == "success"
+    result = await list_files(max_depth=2)
     root = result.data["root"]
     # d1
     assert len(root["children"][0]["children"]) == 1 # d2
     assert len(root["children"][0]["children"][0]["children"]) == 0 # d3 is not listed
 
 
-def test_list_files_path_is_not_a_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_list_files_path_is_not_a_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "file.txt").write_text("hello")
     with pytest.raises(NotADirectoryError):
-        list_files(path="file.txt")
+        await list_files(path="file.txt")
 
 
-def test_list_files_with_gitignore(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_list_files_with_gitignore(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".gitignore").write_text("*.log\nbuild")
     (tmp_path / "file.txt").write_text("a")
@@ -67,8 +69,7 @@ def test_list_files_with_gitignore(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     (tmp_path / "build").mkdir()
     (tmp_path / "build" / "artifact").write_text("c")
 
-    result = list_files()
-    assert result.status == "success"
+    result = await list_files()
     root = result.data["root"]
     # .gitignore, file.txt
     assert len(root["children"]) == 2

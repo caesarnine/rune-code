@@ -6,55 +6,58 @@ from pathlib import Path
 from rune.tools.read_chunk import read_chunk
 
 
-def test_read_chunk_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_read_chunk_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     file_content = "hello world, this is a test of the read_chunk functionality."
     (tmp_path / "test_file.txt").write_text(file_content)
 
     # Read the first 5 bytes
-    result = read_chunk("test_file.txt", length=5)
-    assert result.status == "success"
+    result = await read_chunk("test_file.txt", length=5)
     assert result.data["content"] == "hello"
     assert result.data["offset"] == 0
     assert result.data["read_length"] == 5
     assert result.data["more"] is True
 
     # Read from an offset
-    result = read_chunk("test_file.txt", length=5, offset=6)
+    result = await read_chunk("test_file.txt", length=5, offset=6)
     assert result.data["content"] == "world"
     assert result.data["more"] is True
 
     # Read until the end
-    result = read_chunk("test_file.txt", length=100, offset=len(file_content) - 12)
+    result = await read_chunk("test_file.txt", length=100, offset=len(file_content) - 12)
     assert result.data["content"] == "nctionality."
     assert result.data["read_length"] == 12
     assert result.data["more"] is False
 
 
-def test_read_chunk_offset_beyond_eof(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_read_chunk_offset_beyond_eof(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "test_file.txt").write_text("hello")
 
-    result = read_chunk("test_file.txt", offset=10)
-    assert result.status == "success"
+    result = await read_chunk("test_file.txt", offset=10)
     assert result.data["content"] == ""
     assert result.data["read_length"] == 0
 
 
-def test_read_chunk_file_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_read_chunk_file_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(FileNotFoundError):
-        read_chunk("non_existent.txt")
+        await read_chunk("non_existent.txt")
 
 
-def test_read_chunk_is_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_read_chunk_is_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "a_dir").mkdir()
     with pytest.raises(IsADirectoryError):
-        read_chunk("a_dir")
+        await read_chunk("a_dir")
 
 
-def test_read_chunk_outside_project_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_read_chunk_outside_project_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     
     import os
@@ -68,7 +71,7 @@ def test_read_chunk_outside_project_directory(tmp_path: Path, monkeypatch: pytes
         pytest.skip(f"Cannot write to /tmp for permission test: {e}")
 
     with pytest.raises(PermissionError):
-        read_chunk(str(outside_file))
+        await read_chunk(str(outside_file))
 
     try:
         outside_file.unlink()

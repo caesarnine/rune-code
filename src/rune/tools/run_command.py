@@ -12,9 +12,8 @@ from rich.syntax import Syntax
 from rich.text import Text
 
 from rune.adapters.ui import render as ui
-from rune.core.context import SessionContext
+from rune.core.context import RuneDependencies, SessionContext
 from rune.core.tool_result import ToolResult
-from rune.tools.registry import register_tool
 from rune.utils.stream import stream_to_live
 
 
@@ -159,9 +158,8 @@ def _handle_background_command(command: str, session_ctx: SessionContext) -> Too
     )
 
 
-@register_tool(needs_ctx=True)
 async def run_command(
-    ctx: RunContext[SessionContext],
+    ctx: RunContext[RuneDependencies],
     command: str,
     *,
     timeout: int = 60,
@@ -189,7 +187,7 @@ async def run_command(
         output and the exit code. For background commands, this includes the PID and
         log file path.
     """
-    session_ctx = ctx.deps
+    session_ctx = ctx.deps.session
 
     if background:
         return _handle_background_command(command, session_ctx)

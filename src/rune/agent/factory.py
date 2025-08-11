@@ -12,8 +12,19 @@ from pydantic_ai.providers.azure import AzureProvider
 
 import rune.tools as _pkg
 from rune.agent.rich_wrappers import rich_tool
+from rune.core.context import RuneDependencies
 from rune.core.model_settings import build_settings
-from rune.tools.registry import REGISTRY
+from rune.tools.edit_file import edit_file
+from rune.tools.fetch_url import fetch_url
+from rune.tools.get_metadata import get_metadata
+from rune.tools.grep import grep
+from rune.tools.list_files import list_files
+from rune.tools.read_chunk import read_chunk
+from rune.tools.read_file import read_file
+from rune.tools.run_command import run_command
+from rune.tools.run_python import run_python
+from rune.tools.todos import add_todos, list_todos, update_todos
+from rune.tools.write_file import write_file
 
 DEFAULT_MODEL = "google-vertex:gemini-2.5-pro"
 
@@ -21,12 +32,6 @@ DEFAULT_MODEL = "google-vertex:gemini-2.5-pro"
 def _load_system_prompt() -> str:
     # Reads ai_chat/core/prompts/system_prompt.md at runtime
     return resources.files("rune.core.prompts").joinpath("system_prompt.md").read_text()
-
-
-def _import_all_tools():
-    """Ensure every module under ai_chat.tools is imported once."""
-    for mod in pkgutil.walk_packages(_pkg.__path__, _pkg.__name__ + "."):
-        importlib.import_module(mod.name)
 
 
 def _build_mcp_servers(mcp_url: str | None, mcp_stdio: bool) -> list:
@@ -57,7 +62,6 @@ def build_agent(
     model_overrides: dict | None = None,
     mcp_url: str | None = None,
     mcp_stdio: bool = False,
-    deps_type: type | None = None,
 ) -> Agent:
     model_name = model_name or DEFAULT_MODEL
     settings = build_settings(model_name, model_overrides)
@@ -88,16 +92,23 @@ def build_agent(
         model=model,
         model_settings=settings,
         mcp_servers=_build_mcp_servers(mcp_url, mcp_stdio),
-        retries=10,
-        deps_type=deps_type,
+        output_retries=10,
+        deps_type=RuneDependencies,
     )
 
-    _import_all_tools()
-
-    for spec in REGISTRY:
-        if spec.needs_ctx:
-            agent.tool(rich_tool(spec.fn))  # expects RunContext
-        else:
-            agent.tool_plain(rich_tool(spec.fn))  # plain callable
+    # Register tools
+    agent.tool_plain(rich_tool(edit_file))
+    agent.tool_plain(rich_tool(fetch_url))
+    agent.tool_plain(rich_tool(get_metadata))
+    agent.tool_plain(rich_tool(grep))
+    agent.tool_plain(rich_tool(list_files))
+    agent.tool_plain(rich_tool(read_chunk))
+    agent.tool_plain(rich_tool(read_file))
+    agent.tool(rich_tool(run_command))
+    agent.tool(rich_tool(run_python))
+    agent.tool(rich_tool(add_todos))
+    agent.tool(rich_tool(update_todos))
+    agent.tool(rich_tool(list_todos))
+    agent.tool_plain(rich_tool(write_file))
 
     return agent
