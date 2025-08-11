@@ -12,7 +12,6 @@ from rich.text import Text
 from rune.core.context import SessionContext
 from rune.core.tool_result import ToolResult
 from rune.tools.registry import register_tool
-from rune.utils.stream import stream_to_live
 
 _kernel_manager = None
 _kernel_client = None
@@ -100,7 +99,6 @@ async def run_python(
     Returns:
         The result of the execution, including stdout, stderr, and any return values or display data.
     """
-    live_manager = ctx.deps.live_display
     client = _get_kernel_client()
     msg_id = client.execute(code)
 
