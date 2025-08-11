@@ -5,6 +5,23 @@ from pydantic_ai import RunContext
 from pydantic_ai.usage import Usage  # Import the Usage class
 from rune.core.context import SessionContext
 
+@pytest.fixture(autouse=True)
+def cleanup_kernel():
+    """
+    This autouse fixture ensures that the kernel is shut down after every test
+    that uses it. This prevents state from leaking between tests.
+    """
+    yield
+    # This code runs after each test completes
+    from rune.tools import run_python
+
+    if run_python._kernel_manager:
+        if run_python._kernel_manager.is_alive():
+            run_python._kernel_manager.shutdown_kernel()
+        run_python._kernel_manager = None
+        run_python._kernel_client = None
+
+
 @pytest.fixture
 def mock_run_context() -> RunContext[SessionContext]:
     """
@@ -17,5 +34,5 @@ def mock_run_context() -> RunContext[SessionContext]:
         model="mock-model",
         usage=Usage(),  # A default, empty Usage object
         prompt="",      # An empty string for the prompt
-        deps=session_ctx
+        deps=session_ctx,
     )

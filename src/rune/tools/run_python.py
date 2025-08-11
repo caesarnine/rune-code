@@ -119,7 +119,8 @@ async def run_python(
     async def message_handler():
         while True:
             try:
-                msg = await asyncio.to_thread(client.get_iopub_msg, timeout=1)
+                # Use a small timeout to allow the outer timeout logic to work correctly
+                msg = await asyncio.to_thread(client.get_iopub_msg, timeout=0.05)
                 if msg["parent_header"].get("msg_id") != msg_id:
                     continue
 
@@ -156,17 +157,31 @@ async def run_python(
                 # This is expected if no message is received within the timeout
                 pass
 
-    try:
-        if live_manager:
-            async with stream_to_live(live_manager, build_frame, lambda: is_dirty):
-                await asyncio.wait_for(message_handler(), timeout)
-        else:
-            await asyncio.wait_for(message_handler(), timeout)
+    handler_task = asyncio.create_task(message_handler())
+    timeout_task = asyncio.create_task(asyncio.sleep(timeout))
 
-    except (asyncio.TimeoutError, asyncio.CancelledError):
+    done, pending = await asyncio.wait(
+        {handler_task, timeout_task}, return_when=asyncio.FIRST_COMPLETED
+    )
+
+    if handler_task in pending:
+        handler_task.cancel()
+    if timeout_task in pending:
+        timeout_task.cancel()
+
+    if timeout_task in done:
         if _kernel_manager:
             _kernel_manager.interrupt_kernel()
-        raise
+        raise asyncio.TimeoutError("Execution timed out")
+
+    try:
+        await handler_task
+    except asyncio.CancelledError:
+        # This is expected if the timeout was hit and the task was cancelled.
+        # We still want to raise the timeout error that the test expects.
+        if _kernel_manager:
+            _kernel_manager.interrupt_kernel()
+        raise asyncio.TimeoutError("Execution timed out") from None
 
     error_output = next((o for o in outputs if o["type"] == "error"), None)
     if error_output:

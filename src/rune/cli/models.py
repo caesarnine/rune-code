@@ -64,3 +64,33 @@ def list_models(
             table.add_row(Text(model, style="green"))
 
         console.print(table)
+
+    # Add a special section for Azure OpenAI, as it's configured differently
+    if not provider or provider.lower() == "azure":
+        azure_table = Table(
+            title="[bold cyan]Azure OpenAI[/bold cyan]",
+            show_header=True,
+            header_style="bold magenta",
+            box=box.MINIMAL_DOUBLE_HEAD,
+            padding=(0, 1),
+        )
+        azure_table.add_column("Configuration", style="dim", width=30)
+        azure_table.add_column("Description", width=70)
+
+        azure_table.add_row(
+            Text("Model Format", style="green"),
+            "Use the format: `azure:<your-deployment-name>`",
+        )
+        azure_table.add_row(
+            Text("AZURE_OPENAI_API_KEY", style="green"),
+            "Your Azure OpenAI API key.",
+        )
+        azure_table.add_row(
+            Text("AZURE_OPENAI_ENDPOINT", style="green"),
+            "Your Azure OpenAI resource endpoint.",
+        )
+        azure_table.add_row(
+            Text("AZURE_OPENAI_API_VERSION", style="green"),
+            "The API version for your Azure OpenAI resource.",
+        )
+        console.print(azure_table)

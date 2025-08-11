@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import importlib
+import os
 import pkgutil
 from importlib import resources
 
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerSSE, MCPServerStdio
+from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.providers.azure import AzureProvider
 
 import rune.tools as _pkg
 from rune.agent.rich_wrappers import rich_tool
@@ -58,10 +61,27 @@ def build_agent(
 ) -> Agent:
     model_name = model_name or DEFAULT_MODEL
     settings = build_settings(model_name, model_overrides)
+    model: str | OpenAIModel
+
+    if model_name.startswith("azure:"):
+        deployment = model_name.split(":", 1)[1]
+        try:
+            provider = AzureProvider(
+                api_key=os.environ["AZURE_OPENAI_API_KEY"],
+                azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+                api_version=os.environ["AZURE_OPENAI_API_VERSION"],
+            )
+            model = OpenAIModel(model=deployment, provider=provider)
+        except KeyError as e:
+            raise ValueError(
+                f"Missing Azure environment variable: {e}. Please set AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_API_VERSION."
+            ) from e
+    else:
+        model = model_name
 
     agent = Agent(
         system_prompt=_load_system_prompt(),
-        model=model_name,
+        model=model,
         model_settings=settings,
         mcp_servers=_build_mcp_servers(mcp_url, mcp_stdio),
         retries=10,
