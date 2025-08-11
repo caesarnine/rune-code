@@ -5,15 +5,16 @@ from typing import Any
 from pydantic_ai.models.anthropic import AnthropicModelSettings
 from pydantic_ai.models.google import GoogleModelSettings
 from pydantic_ai.models.groq import GroqModelSettings
-from pydantic_ai.models.openai import OpenAIModelSettings
+from pydantic_ai.models.openai import OpenAIResponsesModelSettings
 
 # …import other providers as you need them
 
 _PROVIDER_MAP = {
     "google": GoogleModelSettings,
-    "openai": OpenAIModelSettings,
+    "openai": OpenAIResponsesModelSettings,
     "anthropic": AnthropicModelSettings,
     "groq": GroqModelSettings,
+    "azure": OpenAIResponsesModelSettings,
     # add more here
 }
 
@@ -36,6 +37,12 @@ def build_settings(model_name: str, overrides: Mapping[str, Any] | None = None):
                 "include_thoughts": True,
                 "thinking_budget": 32768,
             },
+            **(overrides or {}),
+        }
+    elif provider in {"openai", "azure"}:
+        overrides = {
+            "openai_reasoning_effort": "high",
+            "openai_reasoning_summary": "detailed",
             **(overrides or {}),
         }
     return cls(**(overrides or {}))

@@ -126,9 +126,7 @@ async def _handle_streaming_command(
     )
 
 
-def _handle_background_command(
-    command: str, session_ctx: SessionContext
-) -> ToolResult:
+def _handle_background_command(command: str, session_ctx: SessionContext) -> ToolResult:
     """Handles running a command in the background."""
     log_dir = session_ctx.current_working_dir / ".rune" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
