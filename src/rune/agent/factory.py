@@ -71,15 +71,15 @@ def build_agent(
                 azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
                 api_version=os.environ["AZURE_OPENAI_API_VERSION"],
             )
-            model = OpenAIResponsesModel(
-                model=deployment, provider=provider, settings=settings
+            model = OpenAIModel(
+                model_name=deployment, provider=provider
             )
         except KeyError as e:
             raise ValueError(
                 f"Missing Azure environment variable: {e}. Please set AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_API_VERSION."
             ) from e
     elif model_name.startswith("openai:"):
-        model = OpenAIResponsesModel(model=model_name, settings=settings)
+        model = OpenAIModel(model_name=model_name)
     else:
         model = model_name
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rune-code"
-version = "0.14.0"
+version = "0.15.0"
 description = "A terminal first, opinionated AI coding agent written in Python. Works with almost any model via Pydantic-AI."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -32,7 +32,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "prompt-toolkit>=3.0.0",
     "rich>=13.9.4",
-    "pydantic-ai[examples]>=0.2.0",
+    "pydantic-ai[examples]>=0.6.0",
     "jupyter-client>=8.6.3",
     "ipython>=8.37.0",
     "ipykernel>=6.29.5",
