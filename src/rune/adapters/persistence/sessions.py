@@ -16,12 +16,14 @@ class Session(BaseModel):
     context: SessionContext = Field(default_factory=SessionContext)
 
 
-SESSIONS_DIR = Path.cwd() / ".rune" / "sessions"
-SESSIONS_DIR.mkdir(exist_ok=True, parents=True)
-
-
 # Rebuild the model to handle forward references
 Session.model_rebuild()
+
+
+def get_sessions_dir(base_dir: Path) -> Path:
+    sessions_dir = base_dir / ".rune" / "sessions"
+    sessions_dir.mkdir(exist_ok=True, parents=True)
+    return sessions_dir
 
 
 def save_session(path: Path, session: Session) -> None:
@@ -39,9 +41,10 @@ def load_session(path: Path) -> Session:
         return Session(messages=messages)
 
 
-def choose_session(console) -> Path | None:
+def choose_session(console, base_dir: Path) -> Path | None:
+    sessions_dir = get_sessions_dir(base_dir)
     sessions = sorted(
-        SESSIONS_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True
+        sessions_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True
     )[:5]
     if not sessions:
         return None

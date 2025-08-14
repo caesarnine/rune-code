@@ -5,9 +5,11 @@ from pathlib import Path
 from typing import Any
 
 import pathspec
+from pydantic_ai import RunContext
 from rich.console import Group
 from rich.text import Text
 
+from rune.core.context import SessionContext
 from rune.core.tool_result import ToolResult
 from rune.tools.registry import register_tool
 
@@ -85,8 +87,9 @@ def _load_ignore_spec(start_dir: Path) -> pathspec.PathSpec:
     return pathspec.PathSpec.from_lines("gitwildmatch", patterns)
 
 
-@register_tool(needs_ctx=False)
+@register_tool(needs_ctx=True)
 def list_files(
+    ctx: RunContext[SessionContext],
     path: str = ".",
     *,
     recursive: bool = True,
@@ -103,7 +106,7 @@ def list_files(
         recursive: If True, lists files and directories recursively. Defaults to True.
         max_depth: The maximum depth for recursive listing. Defaults to 3.
     """
-    base_dir = Path.cwd()
+    base_dir = ctx.deps.current_working_dir
     target_dir = (base_dir / path).resolve()
 
     if not target_dir.is_dir():

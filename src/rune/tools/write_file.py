@@ -4,10 +4,12 @@ import difflib
 from pathlib import Path
 from typing import Literal
 
+from pydantic_ai import RunContext
 from rich.console import Group
 from rich.syntax import Syntax
 from rich.text import Text
 
+from rune.core.context import SessionContext
 from rune.core.tool_result import ToolResult
 from rune.tools.registry import register_tool
 
@@ -57,8 +59,10 @@ def _create_renderable(
     return Group(*renderables)
 
 
-@register_tool(needs_ctx=False)
-def write_file(path: str, content: str, *, mode: Literal["w", "a"] = "w") -> ToolResult:
+@register_tool(needs_ctx=True)
+def write_file(
+    ctx: RunContext[SessionContext], path: str, content: str, *, mode: Literal["w", "a"] = "w"
+) -> ToolResult:
     """Writes or appends content to a file on the local filesystem.
 
     This tool can create a new file, overwrite an existing file, or append
@@ -75,7 +79,7 @@ def write_file(path: str, content: str, *, mode: Literal["w", "a"] = "w") -> Too
             'a': Append the content to the end of the file, creating it if it
                  does not exist.
     """
-    base = Path.cwd()
+    base = ctx.deps.current_working_dir
     target = (base / path).resolve()
 
     try:

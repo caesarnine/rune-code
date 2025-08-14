@@ -7,9 +7,11 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from pydantic_ai import RunContext
 from rich.console import Group
 from rich.text import Text
 
+from rune.core.context import SessionContext
 from rune.core.tool_result import ToolResult
 from rune.tools.registry import register_tool
 
@@ -88,8 +90,9 @@ def _create_renderable(
     return Group(*body)
 
 
-@register_tool(needs_ctx=False)
+@register_tool(needs_ctx=True)
 def grep(
+    ctx: RunContext[SessionContext],
     pattern: str,
     *,
     path: str = ".",
@@ -118,7 +121,7 @@ def grep(
             "ripgrep (rg) not found. Install: https://github.com/BurntSushi/ripgrep#installation"
         )
 
-    base_dir = Path.cwd()
+    base_dir = ctx.deps.current_working_dir
     search_root = (base_dir / path).resolve()
 
     try:

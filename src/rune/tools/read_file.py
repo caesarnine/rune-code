@@ -2,18 +2,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pydantic_ai import RunContext
 from rich.console import Group
 from rich.syntax import Syntax
 from rich.text import Text
 
+from rune.core.context import SessionContext
 from rune.core.tool_result import ToolResult
 from rune.tools.registry import register_tool
 
 MAX_READ = 5 * 1024 * 1024  # 5 MB
 
 
-@register_tool(needs_ctx=False)
-def read_file(path: str) -> ToolResult:
+@register_tool(needs_ctx=True)
+def read_file(ctx: RunContext[SessionContext], path: str) -> ToolResult:
     """Reads the entire content of a file.
 
     This tool is suitable for reasonably sized text files (up to 5 MB). For
@@ -23,7 +25,7 @@ def read_file(path: str) -> ToolResult:
     Args:
         path: The path to the file to read.
     """
-    base = Path.cwd()
+    base = ctx.deps.current_working_dir
     target = (base / path).resolve()
 
     if not target.exists():

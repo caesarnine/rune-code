@@ -42,7 +42,7 @@ def build_settings(model_name: str, overrides: Mapping[str, Any] | None = None):
     elif provider in {"openai", "azure"}:
         overrides = {
             "openai_reasoning_effort": "high",
-            "openai_reasoning_summary": "detailed",
+            "openai_reasoning_summary": "concise",
             **(overrides or {}),
         }
     return cls(**(overrides or {}))

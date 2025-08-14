@@ -3,10 +3,12 @@ from __future__ import annotations
 import difflib
 from pathlib import Path
 
+from pydantic_ai import RunContext
 from rich.console import Group
 from rich.syntax import Syntax
 from rich.text import Text
 
+from rune.core.context import SessionContext
 from rune.core.tool_result import ToolResult
 from rune.tools.registry import register_tool
 from rune.utils.diff import ApplyDiffResult, DiffApplyer
@@ -51,8 +53,8 @@ def _create_renderable(
     return Group(*renderables)
 
 
-@register_tool(needs_ctx=False)
-def edit_file(path: str, diff: str) -> ToolResult:
+@register_tool(needs_ctx=True)
+def edit_file(ctx: RunContext[SessionContext], path: str, diff: str) -> ToolResult:
     """
     Performs precise, robust edits to a file using one or more diff blocks. Returns the diff between the original and edited file.
 
@@ -80,7 +82,7 @@ def edit_file(path: str, diff: str) -> ToolResult:
         diff: A string containing one or more diff blocks that specify the edits.
     ```
     """
-    base_dir = Path.cwd()
+    base_dir = ctx.deps.current_working_dir
     target = (base_dir / path).resolve()
 
     try:

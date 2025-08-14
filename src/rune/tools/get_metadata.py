@@ -4,9 +4,11 @@ import stat
 from datetime import datetime, timezone
 from pathlib import Path
 
+from pydantic_ai import RunContext
 from rich.console import Group
 from rich.text import Text
 
+from rune.core.context import SessionContext
 from rune.core.tool_result import ToolResult
 from rune.tools.registry import register_tool
 
@@ -62,8 +64,8 @@ def _create_renderable(
     return Group(*renderables)
 
 
-@register_tool(needs_ctx=False)
-def get_metadata(path: str) -> ToolResult:
+@register_tool(needs_ctx=True)
+def get_metadata(ctx: RunContext[SessionContext], path: str) -> ToolResult:
     """Outputs the metadata of a file or directory.
 
     Retrieves details such as type (file, dir), size, permissions, and last
@@ -72,7 +74,7 @@ def get_metadata(path: str) -> ToolResult:
     Args:
         path: The path to the file or directory to describe.
     """
-    base_dir = Path.cwd()
+    base_dir = ctx.deps.current_working_dir
     target = (base_dir / path).resolve()
 
     try:

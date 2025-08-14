@@ -5,8 +5,9 @@ from pathlib import Path
 from rune.tools.edit_file import edit_file
 
 
-def test_edit_file_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_edit_file_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_run_context) -> None:
     monkeypatch.chdir(tmp_path)
+    mock_run_context.deps.current_working_dir = tmp_path
     (tmp_path / "test_file.txt").write_text("line1\nline2\nline3")
 
     diff = '''<<<<<<< SEARCH
@@ -15,37 +16,41 @@ line2
 new_line2
 >>>>>>> REPLACE'''
 
-    result = edit_file("test_file.txt", diff)
+    result = edit_file(mock_run_context, "test_file.txt", diff)
     assert result.status == "success"
 
     content = (tmp_path / "test_file.txt").read_text()
     assert content == "line1\nnew_line2\nline3"
 
 
-def test_edit_file_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_edit_file_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_run_context) -> None:
     monkeypatch.chdir(tmp_path)
+    mock_run_context.deps.current_working_dir = tmp_path
     with pytest.raises(FileNotFoundError):
-        edit_file("non_existent_file.txt", "diff")
+        edit_file(mock_run_context, "non_existent_file.txt", "diff")
 
 
-def test_edit_file_is_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_edit_file_is_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_run_context) -> None:
     monkeypatch.chdir(tmp_path)
+    mock_run_context.deps.current_working_dir = tmp_path
     (tmp_path / "a_dir").mkdir()
     with pytest.raises(FileNotFoundError):
-        edit_file("a_dir", "diff")
+        edit_file(mock_run_context, "a_dir", "diff")
 
 
-def test_edit_file_bad_diff_syntax(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_edit_file_bad_diff_syntax(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_run_context) -> None:
     monkeypatch.chdir(tmp_path)
+    mock_run_context.deps.current_working_dir = tmp_path
     (tmp_path / "test_file.txt").write_text("line1\nline2\nline3")
     
     bad_diff = "this is not a valid diff"
     with pytest.raises(ValueError, match="Invalid diff format"):
-        edit_file("test_file.txt", bad_diff)
+        edit_file(mock_run_context, "test_file.txt", bad_diff)
 
 
-def test_edit_file_search_block_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_edit_file_search_block_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_run_context) -> None:
     monkeypatch.chdir(tmp_path)
+    mock_run_context.deps.current_working_dir = tmp_path
     (tmp_path / "test_file.txt").write_text("line1\nline2\nline3")
     
     diff_not_found = '''<<<<<<< SEARCH
@@ -54,11 +59,12 @@ this_is_not_in_the_file
 replacement
 >>>>>>> REPLACE'''
     with pytest.raises(ValueError, match="No unique match found"):
-        edit_file("test_file.txt", diff_not_found)
+        edit_file(mock_run_context, "test_file.txt", diff_not_found)
 
 
-def test_edit_file_outside_project_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_edit_file_outside_project_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_run_context) -> None:
     monkeypatch.chdir(tmp_path)
+    mock_run_context.deps.current_working_dir = tmp_path
     
     import os
     if os.name == 'nt':
@@ -73,7 +79,7 @@ def test_edit_file_outside_project_directory(tmp_path: Path, monkeypatch: pytest
         pytest.skip(f"Could not write to /tmp to set up permission test: {e}")
 
     with pytest.raises(PermissionError, match="Path is outside the project directory"):
-        edit_file(str(outside_file), "diff")
+        edit_file(mock_run_context, str(outside_file), "diff")
         
     try:
         outside_file.unlink()

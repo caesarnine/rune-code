@@ -25,6 +25,7 @@ from rich.spinner import Spinner
 from rune.adapters.persistence.sessions import (
     Session,
     choose_session,
+    get_sessions_dir,
     load_session,
     save_session,
 )
@@ -37,9 +38,10 @@ from rune.cli.models import app as models_app
 from rune.core.context import SessionContext
 from rune.core.messages import ModelMessage, ModelRequest
 
-RUNE_DIR = Path.cwd() / ".rune"
-PROMPT_HISTORY = RUNE_DIR / "prompt.history"
-SNAPSHOT_DIR = RUNE_DIR / "snapshots"
+# Compute rune directories at runtime based on chat startup directory
+RUNE_DIR: Path | None = None
+PROMPT_HISTORY: Path | None = None
+SNAPSHOT_DIR: Path | None = None
 
 
 pt_style = Style.from_dict({"": "ansicyan"})
@@ -143,21 +145,21 @@ async def run_agent_turn(
 async def chat_async(
     mcp_url: str | None, mcp_stdio: bool, model_name: str | None
 ) -> None:
-    ses_path = choose_session(console)
+    base_dir = Path.cwd()
+    ses_path = choose_session(console, base_dir)
     if ses_path:
         session = load_session(ses_path)
         console.print(f"📂  Resuming session: [italic]{ses_path.stem}[/]")
     else:
-        ses_path = (
-            RUNE_DIR / "sessions" / f"session_{datetime.now():%Y%m%d_%H%M%S}.json"
-        )
+        ses_path = base_dir / ".rune" / "sessions" / f"session_{datetime.now():%Y%m%d_%H%M%S}.json"
         session = Session()
         console.print("🆕  Starting new session")
-        RUNE_DIR.mkdir(exist_ok=True)
-        SNAPSHOT_DIR.mkdir(exist_ok=True)
+        (base_dir / ".rune" / "sessions").mkdir(parents=True, exist_ok=True)
+        (base_dir / ".rune" / "snapshots").mkdir(parents=True, exist_ok=True)
         save_session(ses_path, session)
 
     session_ctx = session.context
+    session_ctx.current_working_dir = base_dir
     agent = build_agent(
         model_name=model_name,
         mcp_url=mcp_url,
@@ -179,7 +181,7 @@ async def chat_async(
 
     pt_session = PromptSession(
         multiline=True,
-        history=FileHistory(str(PROMPT_HISTORY)),
+        history=FileHistory(str(base_dir / ".rune" / "prompt.history")),
         auto_suggest=AutoSuggestFromHistory(),
         key_bindings=bindings,
         completer=ModelCompleter(),
@@ -220,7 +222,9 @@ async def chat_async(
                 )
                 if not fname.endswith(".json"):
                     fname += ".json"
-                shutil.copy2(ses_path, SNAPSHOT_DIR / fname)
+                snapshot_dir = base_dir / ".rune" / "snapshots"
+                snapshot_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(ses_path, snapshot_dir / fname)
                 console.print(f"💾  Snapshot saved ➜ {fname}")
                 continue
 
